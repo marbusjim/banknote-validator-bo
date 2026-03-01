@@ -29,8 +29,20 @@ const CameraModule = (() => {
    */
   async function start() {
     try {
-      // Stop any existing stream first
-      stop();
+      // Stop any existing stream first (only if one is active)
+      if (stream) {
+        stop();
+      }
+
+      // Re-acquire video element in case DOM was rebuilt
+      if (!videoElement || !videoElement.isConnected) {
+        videoElement = document.getElementById("cameraFeed");
+        canvasElement = document.getElementById("captureCanvas");
+      }
+
+      if (!videoElement) {
+        return { success: false, error: "not-supported" };
+      }
 
       // Check if we're on a secure context (HTTPS or localhost)
       if (!window.isSecureContext) {

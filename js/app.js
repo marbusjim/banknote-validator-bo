@@ -228,8 +228,6 @@
         } else {
           // Got a result (valid, invalid, or error) — show it directly
           showResult(result);
-          // Stop camera to save battery when showing result
-          CameraModule.stop();
         }
       } else {
         showScanError("No se pudo leer el billete. Asegúrate de enfocar bien el número de serie e intenta de nuevo.");
@@ -276,6 +274,10 @@
   function handleRetryScan() {
     scanError.style.display = "none";
     hideResults();
+    // Restart camera if it was stopped
+    if (!CameraModule.isActive() && CameraModule.isSupported()) {
+      CameraModule.start();
+    }
   }
 
   // ── Camera Controls ────────────────────────────────────────────────
@@ -441,8 +443,8 @@
     // Scroll to top
     window.scrollTo({ top: 0, behavior: "smooth" });
 
-    // Restart camera if in camera mode
-    if (currentMode === "camera" && CameraModule.isSupported()) {
+    // Restart camera if in camera mode and not already active
+    if (currentMode === "camera" && CameraModule.isSupported() && !CameraModule.isActive()) {
       CameraModule.start();
     }
   }
