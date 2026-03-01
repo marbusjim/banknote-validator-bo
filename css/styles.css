@@ -267,13 +267,14 @@ body {
   position: absolute;
   inset: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
+  padding-bottom: 12%;
 }
 
 .scan-region {
   width: 92%;
-  height: 18%;
+  height: 35%;
   position: relative;
   border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: var(--radius-sm);
@@ -316,12 +317,27 @@ body {
 
 .scan-hint {
   position: absolute;
-  bottom: -30px;
+  bottom: -28px;
   left: 50%;
   transform: translateX(-50%);
   white-space: nowrap;
   font-size: var(--font-size-sm);
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+
+.scan-hint strong {
+  color: var(--color-accent);
+}
+
+.scan-hint-sub {
+  position: absolute;
+  bottom: -48px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.6);
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
 }
 
