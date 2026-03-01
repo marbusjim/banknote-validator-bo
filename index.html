@@ -101,14 +101,15 @@
 
       <div class="ocr-status" id="ocrStatus" style="display:none;">
         <div class="spinner"></div>
-        <span>Procesando imagen...</span>
+        <span id="ocrStatusText">Escaneando billete...</span>
       </div>
 
-      <div class="ocr-result" id="ocrResult" style="display:none;">
-        <p class="ocr-label">Texto detectado:</p>
-        <p class="ocr-text" id="ocrText"></p>
-        <button class="btn btn-small" id="btnUseOcr">Usar este número</button>
-        <button class="btn btn-small btn-outline" id="btnRetry">Reintentar</button>
+      <div class="scan-error" id="scanError" style="display:none;">
+        <p class="scan-error-text" id="scanErrorText"></p>
+        <div class="scan-error-actions">
+          <button class="btn btn-small" id="btnRetryCapture">📷 Reintentar</button>
+          <button class="btn btn-small btn-outline" id="btnGoManualFromScan">✏️ Ingreso Manual</button>
+        </div>
       </div>
     </section>
 

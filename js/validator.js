@@ -187,11 +187,114 @@ const BanknoteValidator = (() => {
     };
   }
 
+  /**
+   * Extract ALL possible serial numbers from OCR text.
+   * Looks for patterns with digits near a B letter.
+   * @param {string} text
+   * @returns {string[]} Array of possible normalized serials
+   */
+  function extractAllSerials(text) {
+    if (!text) return [];
+    const results = [];
+
+    // Pattern 1: B followed by digits (B0012345678)
+    const pattern1 = /B\s*[-.]?\s*(\d[\d\s\-.]{5,}\d)/gi;
+    let match;
+    while ((match = pattern1.exec(text)) !== null) {
+      const digits = match[1].replace(/[\s\-.]+/g, "");
+      if (digits.length >= 7 && digits.length <= 12) {
+        results.push("B" + digits);
+      }
+    }
+
+    // Pattern 2: digits followed by B (0012345678 B) — as seen on Bolivian bills
+    const pattern2 = /(\d[\d\s\-.]{5,}\d)\s*B/gi;
+    while ((match = pattern2.exec(text)) !== null) {
+      const digits = match[1].replace(/[\s\-.]+/g, "");
+      if (digits.length >= 7 && digits.length <= 12) {
+        results.push("B" + digits);
+      }
+    }
+
+    // Deduplicate
+    return [...new Set(results)];
+  }
+
+  /**
+   * Auto-validate: given raw OCR text, extract serials and try all denominations.
+   * Returns the first definitive result found (invalid first, then valid).
+   * @param {string} ocrText - Raw text from OCR
+   * @returns {{
+   *   status: "valid"|"invalid"|"not-found"|"error",
+   *   message: string,
+   *   denomination: string|null,
+   *   serial: string|null,
+   *   normalized: string|null,
+   *   allExtracted: string[]
+   * }}
+   */
+  function autoValidate(ocrText) {
+    const serials = extractAllSerials(ocrText);
+
+    if (serials.length === 0) {
+      // Try the single extract as fallback
+      const single = extractSerial(ocrText);
+      if (single) serials.push(single);
+    }
+
+    if (serials.length === 0) {
+      return {
+        status: "not-found",
+        message: "No se pudo detectar un número de serie en la imagen. Intenta de nuevo o usa el ingreso manual.",
+        denomination: null,
+        serial: null,
+        normalized: null,
+        allExtracted: [],
+      };
+    }
+
+    // Check each serial against all denominations
+    // Priority: find invalid first (more important to flag)
+    let bestValid = null;
+
+    for (const serial of serials) {
+      for (const denom of VALID_DENOMINATIONS) {
+        const result = validate(denom, serial);
+
+        if (result.status === "invalid") {
+          // Immediately return invalid — critical finding
+          return { ...result, allExtracted: serials };
+        }
+
+        if (result.status === "valid" && !bestValid) {
+          bestValid = { ...result, allExtracted: serials };
+        }
+      }
+    }
+
+    // If we found a valid result, return it
+    if (bestValid) {
+      return bestValid;
+    }
+
+    // Serial was found but couldn't validate (format issues, etc.)
+    return {
+      status: "not-found",
+      message: "Se detectó texto pero no se pudo verificar como número de serie válido. Intenta de nuevo o usa el ingreso manual.",
+      denomination: null,
+      serial: serials[0],
+      normalized: normalizeSerial(serials[0]),
+      allExtracted: serials,
+    };
+  }
+
   // Public API
   return {
     validate,
+    autoValidate,
     normalizeSerial,
     extractSerial,
+    extractAllSerials,
     isValidFormat,
     isSerieB,
     getDatabaseStatus,

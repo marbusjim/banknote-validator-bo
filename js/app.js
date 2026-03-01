@@ -24,10 +24,11 @@
   const btnSwitchCamera = $("#btnSwitchCamera");
   const btnFlash = $("#btnFlash");
   const ocrStatus = $("#ocrStatus");
-  const ocrResult = $("#ocrResult");
-  const ocrText = $("#ocrText");
-  const btnUseOcr = $("#btnUseOcr");
-  const btnRetry = $("#btnRetry");
+  const ocrStatusText = $("#ocrStatusText");
+  const scanError = $("#scanError");
+  const scanErrorText = $("#scanErrorText");
+  const btnRetryCapture = $("#btnRetryCapture");
+  const btnGoManualFromScan = $("#btnGoManualFromScan");
 
   // Manual form
   const denomBtns = $$(".denom-btn");
@@ -54,7 +55,6 @@
   // ── State ──────────────────────────────────────────────────────────
   let selectedDenomination = null;
   let currentMode = "camera"; // "camera" | "manual"
-  let ocrWorker = null;
 
   // ── Initialization ─────────────────────────────────────────────────
   async function init() {
@@ -86,9 +86,9 @@
     btnSwitchCamera.addEventListener("click", handleSwitchCamera);
     btnFlash.addEventListener("click", handleFlashToggle);
 
-    // OCR result actions
-    btnUseOcr.addEventListener("click", handleUseOcrResult);
-    btnRetry.addEventListener("click", handleRetry);
+    // Scan error actions
+    btnRetryCapture.addEventListener("click", handleRetryScan);
+    btnGoManualFromScan.addEventListener("click", () => switchMode("manual"));
 
     // Denomination buttons
     denomBtns.forEach((btn) => {
@@ -192,7 +192,7 @@
     showResult(result);
   }
 
-  // ── Camera Capture & OCR ───────────────────────────────────────────
+  // ── Camera Capture & Direct Validation ─────────────────────────────
   async function handleCapture() {
     if (!CameraModule.isActive()) {
       const result = await CameraModule.start();
@@ -205,10 +205,12 @@
     const imageDataURL = CameraModule.getCapturedImageDataURL();
     if (!imageDataURL) return;
 
-    // Show processing status
+    // Show scanning status
     ocrStatus.style.display = "flex";
-    ocrResult.style.display = "none";
+    scanError.style.display = "none";
+    hideResults();
     btnCapture.disabled = true;
+    ocrStatusText.textContent = "Escaneando billete...";
 
     try {
       const text = await performOCR(imageDataURL);
@@ -217,18 +219,26 @@
       btnCapture.disabled = false;
 
       if (text && text.trim()) {
-        // Try to extract a serial number
-        const extracted = BanknoteValidator.extractSerial(text);
-        ocrText.textContent = extracted || text.trim();
-        ocrResult.style.display = "block";
+        // Auto-validate: extract serial + detect denomination + check validity
+        const result = BanknoteValidator.autoValidate(text);
+
+        if (result.status === "not-found") {
+          // Could not extract a serial — show error with retry
+          showScanError(result.message);
+        } else {
+          // Got a result (valid, invalid, or error) — show it directly
+          showResult(result);
+          // Stop camera to save battery when showing result
+          CameraModule.stop();
+        }
       } else {
-        showOCRError();
+        showScanError("No se pudo leer el billete. Asegúrate de enfocar bien el número de serie e intenta de nuevo.");
       }
     } catch (err) {
       console.error("OCR Error:", err);
       ocrStatus.style.display = "none";
       btnCapture.disabled = false;
-      showOCRError();
+      showScanError("Error al procesar la imagen. Intenta de nuevo o usa el ingreso manual.");
     }
   }
 
@@ -238,54 +248,34 @@
    * @returns {Promise<string>} Recognized text
    */
   async function performOCR(imageDataURL) {
-    // Check if Tesseract is available
     if (typeof Tesseract === "undefined") {
       console.error("Tesseract.js is not loaded");
       throw new Error("OCR library not available");
     }
 
-    try {
-      const result = await Tesseract.recognize(imageDataURL, "eng", {
-        logger: (info) => {
-          if (info.status === "recognizing text") {
-            // Could update a progress bar here
-            console.log(`OCR progress: ${Math.round(info.progress * 100)}%`);
-          }
-        },
-      });
+    const result = await Tesseract.recognize(imageDataURL, "eng", {
+      logger: (info) => {
+        if (info.status === "recognizing text") {
+          const pct = Math.round(info.progress * 100);
+          ocrStatusText.textContent = `Leyendo número de serie... ${pct}%`;
+        }
+      },
+    });
 
-      return result.data.text;
-    } catch (err) {
-      console.error("Tesseract error:", err);
-      throw err;
-    }
+    return result.data.text;
   }
 
-  function showOCRError() {
-    ocrText.textContent = "No se pudo leer el texto. Intenta de nuevo o usa el ingreso manual.";
-    ocrResult.style.display = "block";
-    btnUseOcr.style.display = "none";
+  /**
+   * Show scan error with retry options.
+   */
+  function showScanError(message) {
+    scanErrorText.textContent = message;
+    scanError.style.display = "block";
   }
 
-  function handleUseOcrResult() {
-    const detectedText = ocrText.textContent;
-    if (!detectedText) return;
-
-    // Switch to manual mode with the detected serial
-    switchMode("manual");
-    serialInput.value = detectedText;
-
-    // Auto-detect denomination if possible (not reliable from OCR alone)
-    updateValidateButton();
-
-    // Hide OCR result
-    ocrResult.style.display = "none";
-    btnUseOcr.style.display = "inline-flex";
-  }
-
-  function handleRetry() {
-    ocrResult.style.display = "none";
-    btnUseOcr.style.display = "inline-flex";
+  function handleRetryScan() {
+    scanError.style.display = "none";
+    hideResults();
   }
 
   // ── Camera Controls ────────────────────────────────────────────────
@@ -444,10 +434,9 @@
     denomBtns.forEach((btn) => btn.classList.remove("active"));
     btnValidate.disabled = true;
 
-    // Reset OCR display
-    ocrResult.style.display = "none";
+    // Reset scan displays
+    scanError.style.display = "none";
     ocrStatus.style.display = "none";
-    btnUseOcr.style.display = "inline-flex";
 
     // Scroll to top
     window.scrollTo({ top: 0, behavior: "smooth" });

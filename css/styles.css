@@ -457,6 +457,30 @@ body {
   margin: 0 var(--space-xs);
 }
 
+/* ---------- Scan Error ---------- */
+.scan-error {
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin-top: var(--space-md);
+  box-shadow: var(--shadow-sm);
+  text-align: center;
+  border: 1px solid var(--color-border);
+}
+
+.scan-error-text {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-md);
+  line-height: 1.5;
+}
+
+.scan-error-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-sm);
+}
+
 /* ---------- Manual Form ---------- */
 .manual-form {
   background: var(--color-surface);
