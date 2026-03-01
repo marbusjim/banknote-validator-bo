@@ -34,6 +34,7 @@
   const cameraResultEdit = $("#cameraResultEdit");
   const cameraSerialInput = $("#cameraSerialInput");
   const btnCameraValidate = $("#btnCameraValidate");
+  const capturePreview = $("#capturePreview");
   const camDenomBtns = $$(".cam-denom-btn");
 
   // Manual form
@@ -300,6 +301,9 @@
 
     cameraResultEdit.style.display = "none";
 
+    // Show captured image in preview
+    capturePreview.src = imageDataURL;
+
     // Show scanning status
     ocrStatus.style.display = "flex";
     scanError.style.display = "none";
@@ -326,11 +330,14 @@
         }
 
         cameraResultEdit.scrollIntoView({ behavior: "smooth", block: "center" });
+        // Focus the serial input so user can verify/correct
+        setTimeout(() => cameraSerialInput.focus(), 400);
       } else {
         showScanError("No se pudo leer el número. Intenta de nuevo enfocando bien los dígitos.");
         // Show empty edit field so user can type manually
         cameraSerialInput.value = "";
         cameraResultEdit.style.display = "block";
+        setTimeout(() => cameraSerialInput.focus(), 400);
       }
     } catch (err) {
       console.error("OCR Error:", err);

@@ -393,6 +393,22 @@ body {
   margin-bottom: var(--space-md);
 }
 
+.capture-preview-label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  display: block;
+  margin-bottom: var(--space-xs);
+  color: var(--color-text-secondary);
+}
+
+.capture-preview-image {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  margin-bottom: var(--space-md);
+}
+
 /* Scan animation line */
 .scan-region::after {
   content: '';
