@@ -509,6 +509,47 @@ body {
   gap: var(--space-sm);
 }
 
+/* ---------- OCR Debug ---------- */
+.ocr-debug {
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin-top: var(--space-sm);
+}
+
+.ocr-debug-label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  display: block;
+  margin-bottom: var(--space-xs);
+  color: var(--color-text-secondary);
+}
+
+.ocr-debug-textarea {
+  width: 100%;
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.ocr-debug-parsed {
+  font-size: var(--font-size-sm);
+  margin-top: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  background: rgba(26, 35, 126, 0.08);
+  border-radius: var(--radius-sm);
+  font-family: 'Courier New', monospace;
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
 /* ---------- Manual Form ---------- */
 .manual-form {
   background: var(--color-surface);

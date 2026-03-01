@@ -116,6 +116,13 @@
           <button class="btn btn-small btn-outline" id="btnGoManualFromScan">✏️ Ingreso Manual</button>
         </div>
       </div>
+
+      <!-- Debug: raw OCR output -->
+      <div class="ocr-debug" id="ocrDebug" style="display:none;">
+        <label class="ocr-debug-label">🔍 Texto leído por el escáner:</label>
+        <textarea id="ocrDebugText" class="ocr-debug-textarea" readonly rows="3"></textarea>
+        <p class="ocr-debug-parsed" id="ocrDebugParsed"></p>
+      </div>
     </section>
 
     <!-- Manual Mode -->

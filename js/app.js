@@ -30,6 +30,11 @@
   const btnRetryCapture = $("#btnRetryCapture");
   const btnGoManualFromScan = $("#btnGoManualFromScan");
 
+  // Debug OCR output
+  const ocrDebug = $("#ocrDebug");
+  const ocrDebugText = $("#ocrDebugText");
+  const ocrDebugParsed = $("#ocrDebugParsed");
+
   // Manual form
   const denomBtns = $$(".denom-btn");
   const seriesBtns = $$(".series-btn");
@@ -240,6 +245,14 @@
       btnCapture.disabled = false;
 
       if (text && text.trim()) {
+        // Show raw OCR text for debugging
+        ocrDebugText.value = text;
+        const extracted = BanknoteValidator.extractFromStrip(text);
+        ocrDebugParsed.textContent = extracted
+          ? `Corte: ${extracted.denomination || '?'} | Serial: ${extracted.serialNumber || '?'} | Serie: ${extracted.seriesLetter || '?'}`
+          : 'No se pudo extraer datos del texto';
+        ocrDebug.style.display = "block";
+
         // Auto-validate: extract serial + detect denomination + check validity
         const result = BanknoteValidator.autoValidate(text);
 
@@ -294,6 +307,7 @@
 
   function handleRetryScan() {
     scanError.style.display = "none";
+    ocrDebug.style.display = "none";
     hideResults();
     // Restart camera if it was stopped
     if (!CameraModule.isActive() && CameraModule.isSupported()) {
