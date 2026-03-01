@@ -268,9 +268,9 @@ const CameraModule = (() => {
   }
 
   /**
-   * Enhance the captured image for OCR using Otsu binarization.
-   * Converts to grayscale then applies adaptive threshold to get
-   * clean black text on white background.
+   * Enhance the captured image for OCR.
+   * Uses grayscale + contrast stretch + soft threshold.
+   * Brightens background noise while keeping dark text readable.
    * @param {CanvasRenderingContext2D} ctx
    * @param {number} width
    * @param {number} height
@@ -287,34 +287,29 @@ const CameraModule = (() => {
       data[i + 2] = gray;
     }
 
-    // Step 2: Otsu's method — find optimal binarization threshold
-    const hist = new Array(256).fill(0);
+    // Step 2: Find the darkest and brightest values for contrast stretch
+    let pMin = 255, pMax = 0;
     for (let i = 0; i < data.length; i += 4) {
-      hist[Math.round(data[i])]++;
+      if (data[i] < pMin) pMin = data[i];
+      if (data[i] > pMax) pMax = data[i];
     }
-    const totalPixels = width * height;
-    let sum = 0;
-    for (let i = 0; i < 256; i++) sum += i * hist[i];
-    let sumB = 0, wB = 0, wF = 0;
-    let maxVariance = 0, threshold = 128;
-    for (let t = 0; t < 256; t++) {
-      wB += hist[t];
-      if (wB === 0) continue;
-      wF = totalPixels - wB;
-      if (wF === 0) break;
-      sumB += t * hist[t];
-      const mB = sumB / wB;
-      const mF = (sum - sumB) / wF;
-      const variance = wB * wF * (mB - mF) * (mB - mF);
-      if (variance > maxVariance) {
-        maxVariance = variance;
-        threshold = t;
-      }
-    }
+    const range = pMax - pMin || 1;
 
-    // Step 3: Apply binarization — black text on white background
+    // Step 3: Contrast stretch + soft threshold
+    // - Stretch the grayscale range to 0–255
+    // - Then apply a gamma curve (>1) to brighten mid/light tones
+    //   while keeping dark text dark
+    // - Finally push very light values to white to clean background
+    const gamma = 1.8; // >1 brightens midtones, clears noisy backgrounds
     for (let i = 0; i < data.length; i += 4) {
-      const v = data[i] > threshold ? 255 : 0;
+      // Normalize to 0–1
+      let v = (data[i] - pMin) / range;
+      // Gamma correction — brightens everything except very dark pixels
+      v = Math.pow(v, 1 / gamma);
+      // Scale back to 0–255
+      v = Math.round(v * 255);
+      // Soft threshold: push light areas to white (clean background)
+      if (v > 180) v = 255;
       data[i] = v;
       data[i + 1] = v;
       data[i + 2] = v;
