@@ -272,8 +272,8 @@ body {
 }
 
 .scan-region {
-  width: 7cm;
-  height: 2.3cm;
+  width: 3cm;
+  height: 1cm;
   position: relative;
   border: 2px solid rgba(255, 255, 255, 0.5);
   border-radius: var(--radius-sm);
