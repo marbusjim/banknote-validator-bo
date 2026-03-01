@@ -114,6 +114,23 @@
 
     <!-- Manual Mode -->
     <section class="mode-section" id="manualSection">
+      <!-- Serial Number Location Guide -->
+      <div class="serial-guide">
+        <p class="serial-guide-title">📍 ¿Dónde encuentro el número de serie?</p>
+        <div class="serial-guide-content">
+          <div class="guide-bill">
+            <span class="guide-serial top-right">00000000 B</span>
+            <span class="guide-label">BILLETE</span>
+            <span class="guide-serial bottom-left">00000000 B</span>
+          </div>
+          <div class="guide-arrows">
+            ↗ <strong>Arriba derecha</strong><br>
+            ↙ <strong>Abajo izquierda</strong><br>
+            <small>Busca la letra <strong>B</strong> al final</small>
+          </div>
+        </div>
+      </div>
+
       <div class="manual-form">
         <div class="form-group">
           <label for="denominationSelect">Corte del billete</label>
@@ -167,6 +184,8 @@
         </div>
         <h2>✅ Billete VÁLIDO</h2>
         <p>Este billete <strong>NO se encuentra</strong> en la lista de billetes invalidados por el BCB.</p>
+        <p class="result-sub">Puede circular con total normalidad.</p>
+        <div class="banknote-visual" id="validBanknote"></div>
         <p class="result-detail" id="validDetail"></p>
       </div>
 
@@ -181,6 +200,7 @@
         </div>
         <h2>🚫 Billete INVALIDADO</h2>
         <p>Este billete <strong>se encuentra</strong> en la lista de billetes invalidados por el BCB tras el accidente aéreo.</p>
+        <div class="banknote-visual" id="invalidBanknote"></div>
         <p class="result-warning">⚠️ No debe ser aceptado como medio de pago. Consulte con el BCB.</p>
         <p class="result-detail" id="invalidDetail"></p>
       </div>

@@ -358,22 +358,59 @@
     }
   }
 
+  // ── Banknote Colors Map ─────────────────────────────────────────────
+  const BILL_COLORS = {
+    "10": { name: "Azul", css: "bs10", label: "Bs 10" },
+    "20": { name: "Naranja", css: "bs20", label: "Bs 20" },
+    "50": { name: "Violeta", css: "bs50", label: "Bs 50" },
+  };
+
+  /**
+   * Generate the mini banknote visual HTML.
+   * @param {string} denomination
+   * @param {string} serial - Normalized serial
+   * @returns {string} HTML string
+   */
+  function buildBanknoteVisual(denomination, serial) {
+    const bill = BILL_COLORS[denomination];
+    if (!bill) return "";
+
+    // Show only the numeric part for display
+    const displaySerial = serial || "--------";
+
+    return `
+      <div class="banknote-mini ${bill.css}">
+        <span class="bill-serie">${displaySerial} B</span>
+        <span class="bill-value">${bill.label}</span>
+        <span class="bill-serie-bottom">${displaySerial} B</span>
+      </div>
+      <div class="banknote-info">
+        <div class="bill-name">Billete de ${bill.label} — Serie B</div>
+        <div>Color: <strong>${bill.name}</strong></div>
+        <div class="bill-serial-display">N°: ${displaySerial}</div>
+      </div>
+    `;
+  }
+
   // ── Result Display ─────────────────────────────────────────────────
   function showResult(result) {
     hideResults();
     resultSection.style.display = "block";
 
     const detailText = `Corte: Bs${result.denomination} | Serie: B | N°: ${result.normalized}`;
+    const banknoteHTML = buildBanknoteVisual(result.denomination, result.normalized);
 
     switch (result.status) {
       case "valid":
         resultValid.style.display = "block";
         validDetail.textContent = detailText;
+        document.getElementById("validBanknote").innerHTML = banknoteHTML;
         break;
 
       case "invalid":
         resultInvalid.style.display = "block";
         invalidDetail.textContent = detailText;
+        document.getElementById("invalidBanknote").innerHTML = banknoteHTML;
         break;
 
       case "not-applicable":
