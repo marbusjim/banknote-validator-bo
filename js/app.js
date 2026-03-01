@@ -293,7 +293,10 @@
 
     // Capture and process the frame (single pass)
     const imageDataURL = CameraModule.getCapturedImageDataURL();
-    if (!imageDataURL) return;
+    if (!imageDataURL) {
+      showScanError("No se pudo capturar la imagen. Asegúrate de que la cámara esté activa e intenta de nuevo.");
+      return;
+    }
 
     cameraResultEdit.style.display = "none";
 
