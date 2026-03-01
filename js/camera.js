@@ -166,33 +166,84 @@ const CameraModule = (() => {
     }
   }
 
-  // Scale factor to upscale the narrow strip for better OCR
-  const OCR_UPSCALE = 3;
+  /**
+   * Map overlay-relative coordinates to actual video frame coordinates.
+   * Accounts for object-fit:cover which may crop the video differently
+   * depending on video vs container aspect ratio.
+   *
+   * @param {number} relX - overlay-relative X (0–1)
+   * @param {number} relY - overlay-relative Y (0–1)
+   * @param {number} relW - overlay-relative width (0–1)
+   * @param {number} relH - overlay-relative height (0–1)
+   * @returns {{x:number, y:number, w:number, h:number}} video-frame pixel coords
+   */
+  function mapOverlayToVideo(relX, relY, relW, relH) {
+    const vw = videoElement.videoWidth;
+    const vh = videoElement.videoHeight;
+    const cw = videoElement.clientWidth || 1;
+    const ch = videoElement.clientHeight || 1;
+
+    const videoAspect = vw / vh;
+    const containerAspect = cw / ch;
+
+    let visibleX, visibleY, visibleW, visibleH;
+
+    if (videoAspect > containerAspect) {
+      // Video is wider → full height visible, sides cropped
+      visibleH = vh;
+      visibleW = vh * containerAspect;
+      visibleX = (vw - visibleW) / 2;
+      visibleY = 0;
+    } else {
+      // Video is taller → full width visible, top/bottom cropped
+      visibleW = vw;
+      visibleH = vw / containerAspect;
+      visibleX = 0;
+      visibleY = (vh - visibleH) / 2;
+    }
+
+    return {
+      x: Math.floor(visibleX + relX * visibleW),
+      y: Math.floor(visibleY + relY * visibleH),
+      w: Math.floor(relW * visibleW),
+      h: Math.floor(relH * visibleH),
+    };
+  }
 
   /**
    * Capture a frame from the video feed.
-   * Crops a narrow strip at the very bottom of the frame where the serial is.
-   * Upscales 3× so Tesseract gets enough pixel data to read digits.
-   * @param {string} [enhanceMode="binarize"] - Processing mode
+   * Crops the overlay region (where the serial strip is) and upscales 2×.
+   * Accounts for object-fit:cover coordinate mapping.
    * @returns {HTMLCanvasElement|null} Canvas with captured frame
    */
-  function captureFrame(enhanceMode) {
+  function captureFrame() {
     if (!videoElement || !canvasElement || !stream) return null;
 
     const vw = videoElement.videoWidth;
     const vh = videoElement.videoHeight;
-
     if (!vw || !vh) return null;
 
-    // Narrow strip: 92% width × 10% height at the very bottom of the frame
-    const regionW = Math.floor(vw * 0.92);
-    const regionH = Math.floor(vh * 0.10);
-    const regionX = Math.floor((vw - regionW) / 2);
-    const regionY = Math.floor(vh * 0.88); // very bottom
+    // The CSS overlay: 92% width, 10% height, at bottom with 2% padding
+    // In container-relative coords:
+    const olLeft = (1 - 0.92) / 2;   // 0.04
+    const olTop  = 1 - 0.02 - 0.10;  // 0.88
+    const olW    = 0.92;
+    const olH    = 0.10;
 
-    // Upscale for better OCR accuracy
-    const outW = regionW * OCR_UPSCALE;
-    const outH = regionH * OCR_UPSCALE;
+    const region = mapOverlayToVideo(olLeft, olTop, olW, olH);
+
+    // Clamp to video bounds
+    const sx = Math.max(0, region.x);
+    const sy = Math.max(0, region.y);
+    const sw = Math.min(region.w, vw - sx);
+    const sh = Math.min(region.h, vh - sy);
+
+    if (sw <= 0 || sh <= 0) return null;
+
+    // Upscale 2× for better OCR on small text
+    const scale = 2;
+    const outW = sw * scale;
+    const outH = sh * scale;
 
     canvasElement.width = outW;
     canvasElement.height = outH;
@@ -201,70 +252,23 @@ const CameraModule = (() => {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
 
-    // Draw the cropped region upscaled
-    ctx.drawImage(
-      videoElement,
-      regionX, regionY, regionW, regionH,
-      0, 0, outW, outH
-    );
+    ctx.drawImage(videoElement, sx, sy, sw, sh, 0, 0, outW, outH);
 
-    // Apply image processing for better OCR
-    enhanceForOCR(ctx, outW, outH, enhanceMode || "binarize");
+    // Apply Otsu binarization for clean black/white text
+    enhanceForOCR(ctx, outW, outH);
 
     return canvasElement;
   }
 
   /**
-   * Get multiple processed versions of the captured frame.
-   * Uses 2 strategies: binarize (Otsu) and high-contrast stretch.
-   * @returns {Array<{mode: string, dataURL: string}>}
-   */
-  function getMultiPassCaptures() {
-    const modes = ["binarize", "highContrast"];
-    const captures = [];
-
-    const vw = videoElement.videoWidth;
-    const vh = videoElement.videoHeight;
-    if (!vw || !vh) return captures;
-
-    // Same narrow strip as captureFrame
-    const regionW = Math.floor(vw * 0.92);
-    const regionH = Math.floor(vh * 0.10);
-    const regionX = Math.floor((vw - regionW) / 2);
-    const regionY = Math.floor(vh * 0.88);
-
-    const outW = regionW * OCR_UPSCALE;
-    const outH = regionH * OCR_UPSCALE;
-
-    for (const mode of modes) {
-      const tmpCanvas = document.createElement("canvas");
-      tmpCanvas.width = outW;
-      tmpCanvas.height = outH;
-      const ctx = tmpCanvas.getContext("2d");
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
-
-      ctx.drawImage(
-        videoElement,
-        regionX, regionY, regionW, regionH,
-        0, 0, outW, outH
-      );
-
-      enhanceForOCR(ctx, outW, outH, mode);
-      captures.push({ mode, dataURL: tmpCanvas.toDataURL("image/png") });
-    }
-
-    return captures;
-  }
-
-  /**
-   * Enhance the captured image for better OCR results.
+   * Enhance the captured image for OCR using Otsu binarization.
+   * Converts to grayscale then applies adaptive threshold to get
+   * clean black text on white background.
    * @param {CanvasRenderingContext2D} ctx
    * @param {number} width
    * @param {number} height
-   * @param {string} [mode="binarize"] - Processing mode: "binarize", "highContrast", "invert"
    */
-  function enhanceForOCR(ctx, width, height, mode) {
+  function enhanceForOCR(ctx, width, height) {
     const imageData = ctx.getImageData(0, 0, width, height);
     const data = imageData.data;
 
@@ -276,62 +280,37 @@ const CameraModule = (() => {
       data[i + 2] = gray;
     }
 
-    if (mode === "highContrast") {
-      // Step 2a: Aggressive contrast stretch
-      let min = 255, max = 0;
-      for (let i = 0; i < data.length; i += 4) {
-        if (data[i] < min) min = data[i];
-        if (data[i] > max) max = data[i];
+    // Step 2: Otsu's method — find optimal binarization threshold
+    const hist = new Array(256).fill(0);
+    for (let i = 0; i < data.length; i += 4) {
+      hist[Math.round(data[i])]++;
+    }
+    const totalPixels = width * height;
+    let sum = 0;
+    for (let i = 0; i < 256; i++) sum += i * hist[i];
+    let sumB = 0, wB = 0, wF = 0;
+    let maxVariance = 0, threshold = 128;
+    for (let t = 0; t < 256; t++) {
+      wB += hist[t];
+      if (wB === 0) continue;
+      wF = totalPixels - wB;
+      if (wF === 0) break;
+      sumB += t * hist[t];
+      const mB = sumB / wB;
+      const mF = (sum - sumB) / wF;
+      const variance = wB * wF * (mB - mF) * (mB - mF);
+      if (variance > maxVariance) {
+        maxVariance = variance;
+        threshold = t;
       }
-      const range = max - min || 1;
-      for (let i = 0; i < data.length; i += 4) {
-        const stretched = ((data[i] - min) / range) * 255;
-        const v = Math.max(0, Math.min(255, stretched));
-        data[i] = v;
-        data[i + 1] = v;
-        data[i + 2] = v;
-      }
-    } else if (mode === "invert") {
-      // Step 2b: Invert (for dark backgrounds)
-      for (let i = 0; i < data.length; i += 4) {
-        data[i] = 255 - data[i];
-        data[i + 1] = 255 - data[i + 1];
-        data[i + 2] = 255 - data[i + 2];
-      }
-    } else {
-      // Step 2c: Default — adaptive binarization (Otsu-like threshold)
-      // Calculate histogram
-      const hist = new Array(256).fill(0);
-      for (let i = 0; i < data.length; i += 4) {
-        hist[Math.round(data[i])]++;
-      }
-      // Otsu's method to find optimal threshold
-      const totalPixels = width * height;
-      let sum = 0;
-      for (let i = 0; i < 256; i++) sum += i * hist[i];
-      let sumB = 0, wB = 0, wF = 0;
-      let maxVariance = 0, threshold = 128;
-      for (let t = 0; t < 256; t++) {
-        wB += hist[t];
-        if (wB === 0) continue;
-        wF = totalPixels - wB;
-        if (wF === 0) break;
-        sumB += t * hist[t];
-        const mB = sumB / wB;
-        const mF = (sum - sumB) / wF;
-        const variance = wB * wF * (mB - mF) * (mB - mF);
-        if (variance > maxVariance) {
-          maxVariance = variance;
-          threshold = t;
-        }
-      }
-      // Apply binarization with the computed threshold
-      for (let i = 0; i < data.length; i += 4) {
-        const v = data[i] > threshold ? 255 : 0;
-        data[i] = v;
-        data[i + 1] = v;
-        data[i + 2] = v;
-      }
+    }
+
+    // Step 3: Apply binarization — black text on white background
+    for (let i = 0; i < data.length; i += 4) {
+      const v = data[i] > threshold ? 255 : 0;
+      data[i] = v;
+      data[i + 1] = v;
+      data[i + 2] = v;
     }
 
     ctx.putImageData(imageData, 0, 0);
@@ -380,7 +359,6 @@ const CameraModule = (() => {
     toggleFlash,
     captureFrame,
     getCapturedImageDataURL,
-    getMultiPassCaptures,
     isActive,
     isSupported,
     isFlashOn,

@@ -62,6 +62,7 @@
   let selectedDenomination = null;
   let selectedSeries = null;
   let currentMode = "camera"; // "camera" | "manual"
+  let ocrWorker = null; // persistent Tesseract worker
 
   // ── Initialization ─────────────────────────────────────────────────
   async function init() {
@@ -71,6 +72,9 @@
     // Initialize camera module
     CameraModule.init(cameraFeed, captureCanvas);
 
+    // Pre-initialize OCR worker in background (non-blocking)
+    initOCRWorker();
+
     // Start camera if supported and in camera mode
     if (CameraModule.isSupported() && currentMode === "camera") {
       const result = await CameraModule.start();
@@ -79,6 +83,33 @@
       }
     } else if (!CameraModule.isSupported()) {
       showCameraError("not-supported");
+    }
+  }
+
+  /**
+   * Create and configure a persistent Tesseract worker.
+   * This is done once; subsequent scans reuse the same worker (fast).
+   */
+  async function initOCRWorker() {
+    if (typeof Tesseract === "undefined") return;
+    try {
+      ocrWorker = await Tesseract.createWorker("eng", 1, {
+        logger: (info) => {
+          if (info.status === "recognizing text") {
+            const pct = Math.round(info.progress * 100);
+            ocrStatusText.textContent = `Leyendo número de serie... ${pct}%`;
+          }
+        },
+      });
+      // Set Tesseract parameters — these are NOW actually applied
+      await ocrWorker.setParameters({
+        tessedit_char_whitelist: "0123456789ABCDabcd ",
+        tessedit_pageseg_mode: "7",  // PSM 7 = single text line
+      });
+      console.log("OCR worker ready");
+    } catch (err) {
+      console.error("Failed to init OCR worker:", err);
+      ocrWorker = null;
     }
   }
 
@@ -228,9 +259,9 @@
       }
     }
 
-    // Get multiple processed versions of the same frame
-    const captures = CameraModule.getMultiPassCaptures();
-    if (!captures || captures.length === 0) return;
+    // Capture and process the frame (single pass)
+    const imageDataURL = CameraModule.getCapturedImageDataURL();
+    if (!imageDataURL) return;
 
     // Show scanning status
     ocrStatus.style.display = "flex";
@@ -240,60 +271,30 @@
     ocrStatusText.textContent = "Escaneando billete...";
 
     try {
-      // Run OCR on all preprocessed versions
-      const ocrResults = [];
-      for (let i = 0; i < captures.length; i++) {
-        ocrStatusText.textContent = `Analizando imagen ${i + 1} de ${captures.length}...`;
-        const text = await performOCR(captures[i].dataURL);
-        if (text && text.trim()) {
-          ocrResults.push({ mode: captures[i].mode, text: text.trim() });
-        }
-      }
+      const text = await performOCR(imageDataURL);
 
       ocrStatus.style.display = "none";
       btnCapture.disabled = false;
 
-      if (ocrResults.length === 0) {
-        showScanError("No se pudo leer el billete. Asegúrate de enfocar bien el número de serie e intenta de nuevo.");
-        return;
-      }
+      if (text && text.trim()) {
+        // Show raw OCR text for debugging
+        ocrDebugText.value = text;
+        const extracted = BanknoteValidator.extractFromStrip(text);
+        ocrDebugParsed.textContent = extracted
+          ? `Corte: ${extracted.denomination || '?'} | Serial: ${extracted.serialNumber || '?'} | Serie: ${extracted.seriesLetter || '?'}`
+          : 'No se pudo extraer datos del texto';
+        ocrDebug.style.display = "block";
 
-      // Try to extract and validate from each OCR result, pick the best
-      let bestResult = null;
-      let bestExtracted = null;
-      let bestScore = -1;
-      const allTexts = [];
+        // Auto-validate
+        const result = BanknoteValidator.autoValidate(text);
 
-      for (const ocr of ocrResults) {
-        allTexts.push(`[${ocr.mode}] ${ocr.text}`);
-        const extracted = BanknoteValidator.extractFromStrip(ocr.text);
-        if (!extracted) continue;
-
-        const result = BanknoteValidator.autoValidate(ocr.text);
-
-        // Score: prefer results where more fields were detected
-        const score = (extracted.denomination ? 2 : 0)
-                    + (extracted.serialNumber ? 3 : 0)
-                    + (extracted.seriesLetter ? 1 : 0);
-
-        if (score > bestScore) {
-          bestScore = score;
-          bestResult = result;
-          bestExtracted = extracted;
+        if (result.status === "not-found") {
+          showScanError(result.message);
+        } else {
+          showResult(result);
         }
-      }
-
-      // Show debug info with all OCR attempts
-      ocrDebugText.value = allTexts.join("\n\n");
-      ocrDebugParsed.textContent = bestExtracted
-        ? `Corte: ${bestExtracted.denomination || '?'} | Serial: ${bestExtracted.serialNumber || '?'} | Serie: ${bestExtracted.seriesLetter || '?'}`
-        : 'No se pudo extraer datos de ninguna imagen';
-      ocrDebug.style.display = "block";
-
-      if (bestResult && bestResult.status !== "not-found") {
-        showResult(bestResult);
       } else {
-        showScanError("No se pudo detectar el número de serie. Intenta enfocar mejor la parte inferior del billete.");
+        showScanError("No se pudo leer el billete. Asegúrate de enfocar bien el número de serie e intenta de nuevo.");
       }
     } catch (err) {
       console.error("OCR Error:", err);
@@ -304,30 +305,24 @@
   }
 
   /**
-   * Perform OCR using Tesseract.js with optimized settings.
+   * Perform OCR using the persistent Tesseract worker.
+   * Worker is created once with char_whitelist + PSM 7 (single line).
+   * Subsequent calls are fast because the worker is already initialized.
    * @param {string} imageDataURL - Base64 image data URL
    * @returns {Promise<string>} Recognized text
    */
   async function performOCR(imageDataURL) {
-    if (typeof Tesseract === "undefined") {
-      console.error("Tesseract.js is not loaded");
+    // If worker not ready yet, initialize now (first scan)
+    if (!ocrWorker) {
+      ocrStatusText.textContent = "Preparando escáner...";
+      await initOCRWorker();
+    }
+    if (!ocrWorker) {
       throw new Error("OCR library not available");
     }
 
-    const result = await Tesseract.recognize(imageDataURL, "eng", {
-      logger: (info) => {
-        if (info.status === "recognizing text") {
-          const pct = Math.round(info.progress * 100);
-          ocrStatusText.textContent = `Leyendo número de serie... ${pct}%`;
-        }
-      },
-      // Restrict character set to digits + series letters for better accuracy
-      tessedit_char_whitelist: "0123456789ABCDabcd .,",
-      // PSM 7 = treat image as a single text line
-      tessedit_pageseg_mode: "7",
-    });
-
-    return result.data.text;
+    const { data } = await ocrWorker.recognize(imageDataURL);
+    return data.text;
   }
 
   /**
