@@ -30,11 +30,6 @@
   const btnRetryCapture = $("#btnRetryCapture");
   const btnGoManualFromScan = $("#btnGoManualFromScan");
 
-  // Debug OCR output
-  const ocrDebug = $("#ocrDebug");
-  const ocrDebugText = $("#ocrDebugText");
-  const ocrDebugImage = $("#ocrDebugImage");
-
   // Camera serial edit
   const cameraResultEdit = $("#cameraResultEdit");
   const cameraSerialInput = $("#cameraSerialInput");
@@ -300,10 +295,6 @@
     const imageDataURL = CameraModule.getCapturedImageDataURL();
     if (!imageDataURL) return;
 
-    // Show captured image for debugging (always visible)
-    ocrDebugImage.src = imageDataURL;
-    ocrDebugText.value = "";
-    ocrDebug.style.display = "block";
     cameraResultEdit.style.display = "none";
 
     // Show scanning status
@@ -320,9 +311,6 @@
       btnCapture.disabled = false;
 
       if (text && text.trim()) {
-        // Show raw OCR text for debugging
-        ocrDebugText.value = text;
-
         // Extract just the digits from OCR text
         const digits = text.replace(/[^0-9]/g, "");
 
@@ -402,7 +390,6 @@
 
   function handleRetryScan() {
     scanError.style.display = "none";
-    ocrDebug.style.display = "none";
     cameraResultEdit.style.display = "none";
     hideResults();
     // Restart camera if it was stopped
@@ -576,7 +563,6 @@
     // Reset camera scan state
     cameraResultEdit.style.display = "none";
     cameraSerialInput.value = "";
-    ocrDebug.style.display = "none";
 
     // Reset scan displays
     scanError.style.display = "none";
