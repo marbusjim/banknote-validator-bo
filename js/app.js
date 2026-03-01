@@ -33,8 +33,13 @@
   // Debug OCR output
   const ocrDebug = $("#ocrDebug");
   const ocrDebugText = $("#ocrDebugText");
-  const ocrDebugParsed = $("#ocrDebugParsed");
   const ocrDebugImage = $("#ocrDebugImage");
+
+  // Camera serial edit
+  const cameraResultEdit = $("#cameraResultEdit");
+  const cameraSerialInput = $("#cameraSerialInput");
+  const btnCameraValidate = $("#btnCameraValidate");
+  const camDenomBtns = $$(".cam-denom-btn");
 
   // Manual form
   const denomBtns = $$(".denom-btn");
@@ -62,6 +67,7 @@
   // ── State ──────────────────────────────────────────────────────────
   let selectedDenomination = null;
   let selectedSeries = null;
+  let cameraDenomination = null; // selected denomination in camera mode
   let currentMode = "camera"; // "camera" | "manual"
   let ocrWorker = null; // persistent Tesseract worker
 
@@ -104,7 +110,7 @@
       });
       // Set Tesseract parameters — these are NOW actually applied
       await ocrWorker.setParameters({
-        tessedit_char_whitelist: "0123456789ABCDabcd ",
+        tessedit_char_whitelist: "0123456789 ",
         tessedit_pageseg_mode: "7",  // PSM 7 = single text line
       });
       console.log("OCR worker ready");
@@ -128,6 +134,19 @@
     // Scan error actions
     btnRetryCapture.addEventListener("click", handleRetryScan);
     btnGoManualFromScan.addEventListener("click", () => switchMode("manual"));
+
+    // Camera denomination buttons
+    camDenomBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        selectCameraDenom(btn.dataset.value);
+      });
+    });
+
+    // Camera serial validate
+    btnCameraValidate.addEventListener("click", handleCameraValidate);
+    cameraSerialInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") handleCameraValidate();
+    });
 
     // Denomination buttons
     denomBtns.forEach((btn) => {
@@ -217,6 +236,18 @@
     updateValidateButton();
   }
 
+  // ── Camera Denomination Selection ──────────────────────────────────
+  function selectCameraDenom(value) {
+    cameraDenomination = value;
+
+    camDenomBtns.forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.value === value);
+    });
+
+    // Enable capture button when denomination is selected
+    btnCapture.disabled = false;
+  }
+
   // ── Series Letter Selection ────────────────────────────────────────
   function selectSeries(value) {
     selectedSeries = value;
@@ -250,8 +281,13 @@
     showResult(result);
   }
 
-  // ── Camera Capture & Direct Validation ─────────────────────────────
+  // ── Camera Capture & OCR ─────────────────────────────────────────────
   async function handleCapture() {
+    if (!cameraDenomination) {
+      showScanError("Primero selecciona el corte del billete (Bs10, Bs20 o Bs50).");
+      return;
+    }
+
     if (!CameraModule.isActive()) {
       const result = await CameraModule.start();
       if (!result.success) {
@@ -267,15 +303,15 @@
     // Show captured image for debugging (always visible)
     ocrDebugImage.src = imageDataURL;
     ocrDebugText.value = "";
-    ocrDebugParsed.textContent = "";
     ocrDebug.style.display = "block";
+    cameraResultEdit.style.display = "none";
 
     // Show scanning status
     ocrStatus.style.display = "flex";
     scanError.style.display = "none";
     hideResults();
     btnCapture.disabled = true;
-    ocrStatusText.textContent = "Escaneando billete...";
+    ocrStatusText.textContent = "Leyendo número de serie...";
 
     try {
       const text = await performOCR(imageDataURL);
@@ -286,27 +322,32 @@
       if (text && text.trim()) {
         // Show raw OCR text for debugging
         ocrDebugText.value = text;
-        const extracted = BanknoteValidator.extractFromStrip(text);
-        ocrDebugParsed.textContent = extracted
-          ? `Corte: ${extracted.denomination || '?'} | Serial: ${extracted.serialNumber || '?'} | Serie: ${extracted.seriesLetter || '?'}`
-          : 'No se pudo extraer datos del texto';
 
-        // Auto-validate
-        const result = BanknoteValidator.autoValidate(text);
+        // Extract just the digits from OCR text
+        const digits = text.replace(/[^0-9]/g, "");
 
-        if (result.status === "not-found") {
-          showScanError(result.message);
-        } else {
-          showResult(result);
+        // Show editable serial input with detected digits
+        cameraSerialInput.value = digits;
+        cameraResultEdit.style.display = "block";
+
+        if (digits.length < 5) {
+          showScanError("Pocos dígitos detectados. Corrige el número abajo o intenta de nuevo.");
         }
+
+        cameraResultEdit.scrollIntoView({ behavior: "smooth", block: "center" });
       } else {
-        showScanError("No se pudo leer el billete. Asegúrate de enfocar bien el número de serie e intenta de nuevo.");
+        showScanError("No se pudo leer el número. Intenta de nuevo enfocando bien los dígitos.");
+        // Show empty edit field so user can type manually
+        cameraSerialInput.value = "";
+        cameraResultEdit.style.display = "block";
       }
     } catch (err) {
       console.error("OCR Error:", err);
       ocrStatus.style.display = "none";
       btnCapture.disabled = false;
-      showScanError("Error al procesar la imagen. Intenta de nuevo o usa el ingreso manual.");
+      showScanError("Error al procesar la imagen. Intenta de nuevo.");
+      cameraSerialInput.value = "";
+      cameraResultEdit.style.display = "block";
     }
   }
 
@@ -332,6 +373,26 @@
   }
 
   /**
+   * Validate from camera mode using selected denomination + detected serial + assumed Serie B.
+   */
+  function handleCameraValidate() {
+    const serial = cameraSerialInput.value.trim().replace(/[^0-9]/g, "");
+
+    if (!serial || serial.length < 7) {
+      showScanError("Ingresa un n\u00famero de serie v\u00e1lido (m\u00ednimo 7 d\u00edgitos).");
+      return;
+    }
+
+    if (!cameraDenomination) {
+      showScanError("Selecciona el corte del billete.");
+      return;
+    }
+
+    const result = BanknoteValidator.validate(cameraDenomination, serial, "B");
+    showResult(result);
+  }
+
+  /**
    * Show scan error with retry options.
    */
   function showScanError(message) {
@@ -342,6 +403,7 @@
   function handleRetryScan() {
     scanError.style.display = "none";
     ocrDebug.style.display = "none";
+    cameraResultEdit.style.display = "none";
     hideResults();
     // Restart camera if it was stopped
     if (!CameraModule.isActive() && CameraModule.isSupported()) {
@@ -503,13 +565,18 @@
   function handleNewCheck() {
     hideResults();
 
-    // Reset form
+    // Reset manual form
     serialInput.value = "";
     selectedDenomination = null;
     selectedSeries = null;
     denomBtns.forEach((btn) => btn.classList.remove("active"));
     seriesBtns.forEach((btn) => btn.classList.remove("active"));
     btnValidate.disabled = true;
+
+    // Reset camera scan state
+    cameraResultEdit.style.display = "none";
+    cameraSerialInput.value = "";
+    ocrDebug.style.display = "none";
 
     // Reset scan displays
     scanError.style.display = "none";

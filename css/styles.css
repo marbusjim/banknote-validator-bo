@@ -267,14 +267,13 @@ body {
   position: absolute;
   inset: 0;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
-  padding-bottom: 2%;
 }
 
 .scan-region {
-  width: 4cm;
-  height: 1.5cm;
+  width: 3cm;
+  height: 1cm;
   position: relative;
   border: 2px solid rgba(255, 255, 255, 0.5);
   border-radius: var(--radius-sm);
@@ -315,30 +314,83 @@ body {
 .strip-series { font-size: 0.65rem; opacity: 0.6; }
 .strip-divider { opacity: 0.3; font-size: 0.6rem; }
 
-.scan-hint {
-  position: absolute;
-  top: -32px;
-  left: 50%;
-  transform: translateX(-50%);
-  white-space: nowrap;
+.scan-instruction {
+  text-align: center;
   font-size: var(--font-size-sm);
-  color: rgba(255, 255, 255, 0.9);
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  color: var(--color-text-secondary);
+  margin-top: var(--space-sm);
+  margin-bottom: 0;
 }
 
-.scan-hint strong {
-  color: var(--color-accent);
+.scan-instruction strong {
+  color: var(--color-primary);
 }
 
-.scan-hint-sub {
-  position: absolute;
-  top: -52px;
-  left: 50%;
-  transform: translateX(-50%);
-  white-space: nowrap;
-  font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.6);
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+/* Camera Denomination Selector */
+.camera-denom-selector {
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin-bottom: var(--space-md);
+  box-shadow: var(--shadow-sm);
+  text-align: center;
+}
+
+.camera-denom-label {
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+  font-size: var(--font-size-base);
+}
+
+.camera-denom-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.cam-denom-btn {
+  padding: var(--space-md);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--color-text);
+}
+
+.cam-denom-btn[data-value="10"] { border-color: var(--color-bs10-border); color: var(--color-bs10); }
+.cam-denom-btn[data-value="20"] { border-color: var(--color-bs20-border); color: var(--color-bs20); }
+.cam-denom-btn[data-value="50"] { border-color: var(--color-bs50-border); color: var(--color-bs50); }
+
+.cam-denom-btn[data-value="10"]:hover { background: var(--color-bs10-light); }
+.cam-denom-btn[data-value="20"]:hover { background: var(--color-bs20-light); }
+.cam-denom-btn[data-value="50"]:hover { background: var(--color-bs50-light); }
+
+.cam-denom-btn[data-value="10"].active { background: var(--color-bs10); color: white; border-color: var(--color-bs10); }
+.cam-denom-btn[data-value="20"].active { background: var(--color-bs20); color: white; border-color: var(--color-bs20); }
+.cam-denom-btn[data-value="50"].active { background: var(--color-bs50); color: white; border-color: var(--color-bs50); }
+
+.cam-denom-btn.active { box-shadow: var(--shadow-sm); }
+
+.camera-denom-note {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+/* Camera Result Edit */
+.camera-result-edit {
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  margin-top: var(--space-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.camera-result-edit .form-group {
+  margin-bottom: var(--space-md);
 }
 
 /* Scan animation line */

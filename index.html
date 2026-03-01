@@ -65,6 +65,17 @@
 
     <!-- Camera Mode -->
     <section class="mode-section active" id="cameraSection">
+      <!-- Denomination selector for camera -->
+      <div class="camera-denom-selector" id="cameraDenomSelector">
+        <p class="camera-denom-label">¿Qué billete estás escaneando?</p>
+        <div class="camera-denom-buttons">
+          <button class="cam-denom-btn" data-value="10">Bs 10</button>
+          <button class="cam-denom-btn" data-value="20">Bs 20</button>
+          <button class="cam-denom-btn" data-value="50">Bs 50</button>
+        </div>
+        <p class="camera-denom-note">Se asume <strong>Serie B</strong> automáticamente</p>
+      </div>
+
       <div class="camera-container" id="cameraContainer">
         <video id="cameraFeed" autoplay playsinline muted></video>
         <div class="camera-overlay">
@@ -75,15 +86,13 @@
             <div class="scan-corner br"></div>
             <div class="scan-strip-guide">
               <span class="strip-item strip-serial">N° de serie</span>
-              <span class="strip-divider">·</span>
-              <span class="strip-item strip-series">Serie</span>
             </div>
           </div>
-          <p class="scan-hint">📸 Alinea la <strong>franja del número de serie</strong> dentro del recuadro</p>
-          <p class="scan-hint-sub">Solo la línea con los números y la letra de serie</p>
         </div>
         <canvas id="captureCanvas" style="display:none;"></canvas>
       </div>
+
+      <p class="scan-instruction">📸 Alinea solo el <strong>número de serie</strong> dentro del recuadro</p>
 
       <div class="camera-controls">
         <button class="btn btn-secondary" id="btnSwitchCamera" title="Cambiar cámara">
@@ -91,7 +100,7 @@
             <path d="M20 16v4a2 2 0 01-2 2h-4M4 8V4a2 2 0 012-2h4M15 3l3 3-3 3M9 21l-3-3 3-3"/>
           </svg>
         </button>
-        <button class="btn btn-primary btn-capture" id="btnCapture">
+        <button class="btn btn-primary btn-capture" id="btnCapture" disabled>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28">
             <circle cx="12" cy="12" r="10" />
             <circle cx="12" cy="12" r="6" fill="currentColor" />
@@ -124,7 +133,29 @@
         <img id="ocrDebugImage" class="ocr-debug-image" alt="Imagen capturada" />
         <label class="ocr-debug-label" style="margin-top:8px">�🔍 Texto leído por el escáner:</label>
         <textarea id="ocrDebugText" class="ocr-debug-textarea" readonly rows="3"></textarea>
-        <p class="ocr-debug-parsed" id="ocrDebugParsed"></p>
+      </div>
+
+      <!-- Editable detected serial -->
+      <div class="camera-result-edit" id="cameraResultEdit" style="display:none;">
+        <div class="form-group">
+          <label for="cameraSerialInput">Número detectado:</label>
+          <input 
+            type="text" 
+            id="cameraSerialInput" 
+            placeholder="Ej: 102086675" 
+            class="form-input"
+            autocomplete="off"
+            inputmode="numeric"
+          />
+          <small class="form-hint">Puedes corregir el número si es necesario</small>
+        </div>
+        <button class="btn btn-primary btn-block" id="btnCameraValidate">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+            <path d="M9 12l2 2 4-4" />
+            <circle cx="12" cy="12" r="10" />
+          </svg>
+          Verificar Billete
+        </button>
       </div>
     </section>
 
