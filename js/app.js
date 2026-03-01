@@ -376,6 +376,8 @@
     "10": { name: "Azul", css: "bs10", label: "Bs 10" },
     "20": { name: "Naranja", css: "bs20", label: "Bs 20" },
     "50": { name: "Violeta", css: "bs50", label: "Bs 50" },
+    "100": { name: "Rojo", css: "bs100", label: "Bs 100" },
+    "200": { name: "Marrón", css: "bs200", label: "Bs 200" },
   };
 
   /**

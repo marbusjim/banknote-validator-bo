@@ -29,33 +29,40 @@ This is a **free, ad-free, client-side web application** that helps Bolivian cit
 
 ## How Scanning Works
 
-The app reads the **bottom strip of the banknote**, which contains three pieces of information arranged horizontally:
+The app reads the **bottom strip of the banknote**, which contains the serial number and series letter:
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  50          102086675                        A  │
-│  ↑ denom     ↑ serial number        series ↑    │
+│  [50]          102086675                    A  │
+│  ↑ denom       ↑ serial number      series ↑  │
 └─────────────────────────────────────────────────┘
 ```
+
+The camera overlay does **NOT** show the denomination in the guide, to avoid OCR confusion.
 
 1. **Camera captures** a wide horizontal strip (92% width × 22% height of video frame).
 2. **Image enhancement** converts to grayscale with contrast boost for better OCR.
 3. **Tesseract.js** runs OCR on the enhanced image.
 4. **`extractFromStrip()`** in `validator.js` parses the OCR text using 4 strategies:
-   - Full pattern: `50 102086675 A` (denomination + serial + series letter)
-   - Partial: `102086675 A` (serial + letter, no denomination)
-   - Reversed: `A 102086675` (letter + serial)
+   - Full pattern: `50 102086675 A` (denomination + serial + series letter A–D)
+   - Partial: `102086675 B` (serial + letter, no denomination)
+   - Reversed: `B 102086675` (letter + serial)
    - Fallback: just a long number `102086675`
-5. **OCR character correction** fixes common misreads (`O→0`, `I→1`, `Z→2`, `G→6`).
-6. **Series check**: if the letter ≠ B, the bill is **not affected** (only Serie B was invalidated).
-7. **Range validation**: the numeric serial is checked against `INVALID_SERIALS[denomination]` ranges.
+5. **OCR character correction** fixes common misreads (`O→0`, `I→1`, `Z→2`, `G→6`, `S→5`, `B→8` in digit context).
+6. **Series check**: if the letter ≠ B, the bill is immediately reported as **VALID** (only Serie B was invalidated).
+7. **Denomination check**: Bs100 and Bs200 are immediately reported as **VALID** (not affected by the BCB measure).
+8. **Range validation**: the numeric serial is checked against `INVALID_SERIALS[denomination]` ranges.
 
 ## Validation Logic
 
 - Serials are stored as **integer ranges** `[from, to]` (inclusive), not individual numbers (there are millions of invalidated bills).
 - The `validate()` function accepts `(denomination, serialNumber, seriesLetter)`.
 - `autoValidate(ocrText)` is the camera flow entry point — extracts all data from OCR text automatically.
-- Results have `status`: `"valid"`, `"invalid"`, `"not-applicable"`, `"not-found"`, or `"error"`.
+- **Non-Serie B** bills are reported as **VALID** (not "not-applicable") since users need reassurance.
+- **Bs100 and Bs200** are always reported as **VALID** (not affected by the BCB measure).
+- Only Serie B of Bs10, Bs20, Bs50 needs validation against the invalid ranges.
+- Results have `status`: `"valid"`, `"invalid"`, `"not-found"`, or `"error"`.
+- The regex extraction tolerates OCR noise: extra characters, misread digits, whitespace variations.
 
 ## Invalid Serial Ranges (BCB Data)
 
@@ -72,9 +79,11 @@ Data source: Official BCB publication — "NÚMEROS DE SERIE DE LOS BILLETES DE 
   - Bs10 → Blue (`#1565c0`)
   - Bs20 → Orange (`#e65100`)
   - Bs50 → Violet (`#6a1b9a`)
+  - Bs100 → Red (`#c62828`)
+  - Bs200 → Brown (`#5d4037`)
 - **Two input modes**: Camera scan (default) and Manual entry.
-- **Manual form** has: denomination selector (Bs10/20/50), series letter selector (A/B/C/D), and numeric serial input.
-- **Camera overlay** shows a thin horizontal strip guide with the expected format.
+- **Manual form** has: denomination selector (Bs10/20/50/100/200), series letter selector (A/B/C/D), and numeric serial input.
+- **Camera overlay** shows a thin, mostly transparent horizontal strip guide with **only "N° de serie · Serie"** (no denomination displayed, to avoid OCR confusion).
 - **Results** show a color-coded mini banknote visual with the detected serial info.
 
 ## Camera Module Details
