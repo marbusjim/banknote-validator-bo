@@ -273,8 +273,8 @@ body {
 }
 
 .scan-region {
-  width: 92%;
-  height: 10%;
+  width: 85%;
+  height: 15%;
   position: relative;
   border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: var(--radius-sm);
@@ -532,6 +532,14 @@ body {
   border-radius: var(--radius-md);
   padding: var(--space-md);
   margin-top: var(--space-sm);
+}
+
+.ocr-debug-image {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  margin-bottom: var(--space-xs);
 }
 
 .ocr-debug-label {

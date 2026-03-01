@@ -34,6 +34,7 @@
   const ocrDebug = $("#ocrDebug");
   const ocrDebugText = $("#ocrDebugText");
   const ocrDebugParsed = $("#ocrDebugParsed");
+  const ocrDebugImage = $("#ocrDebugImage");
 
   // Manual form
   const denomBtns = $$(".denom-btn");
@@ -262,6 +263,9 @@
     // Capture and process the frame (single pass)
     const imageDataURL = CameraModule.getCapturedImageDataURL();
     if (!imageDataURL) return;
+
+    // Show captured image for debugging
+    ocrDebugImage.src = imageDataURL;
 
     // Show scanning status
     ocrStatus.style.display = "flex";

@@ -223,12 +223,12 @@ const CameraModule = (() => {
     const vh = videoElement.videoHeight;
     if (!vw || !vh) return null;
 
-    // The CSS overlay: 92% width, 10% height, at bottom with 2% padding
+    // The CSS overlay: 85% width, 15% height, at bottom with 2% padding
     // In container-relative coords:
-    const olLeft = (1 - 0.92) / 2;   // 0.04
-    const olTop  = 1 - 0.02 - 0.10;  // 0.88
-    const olW    = 0.92;
-    const olH    = 0.10;
+    const olLeft = (1 - 0.85) / 2;   // 0.075
+    const olTop  = 1 - 0.02 - 0.15;  // 0.83
+    const olW    = 0.85;
+    const olH    = 0.15;
 
     const region = mapOverlayToVideo(olLeft, olTop, olW, olH);
 
