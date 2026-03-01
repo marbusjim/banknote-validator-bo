@@ -264,8 +264,11 @@
     const imageDataURL = CameraModule.getCapturedImageDataURL();
     if (!imageDataURL) return;
 
-    // Show captured image for debugging
+    // Show captured image for debugging (always visible)
     ocrDebugImage.src = imageDataURL;
+    ocrDebugText.value = "";
+    ocrDebugParsed.textContent = "";
+    ocrDebug.style.display = "block";
 
     // Show scanning status
     ocrStatus.style.display = "flex";
@@ -287,7 +290,6 @@
         ocrDebugParsed.textContent = extracted
           ? `Corte: ${extracted.denomination || '?'} | Serial: ${extracted.serialNumber || '?'} | Serie: ${extracted.seriesLetter || '?'}`
           : 'No se pudo extraer datos del texto';
-        ocrDebug.style.display = "block";
 
         // Auto-validate
         const result = BanknoteValidator.autoValidate(text);

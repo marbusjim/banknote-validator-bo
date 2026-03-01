@@ -212,8 +212,8 @@ const CameraModule = (() => {
 
   /**
    * Capture a frame from the video feed.
-   * Crops the overlay region (where the serial strip is) and upscales 2×.
-   * Accounts for object-fit:cover coordinate mapping.
+   * Reads the scan-region element's actual position on screen,
+   * maps those coordinates into the video frame, and crops+upscales.
    * @returns {HTMLCanvasElement|null} Canvas with captured frame
    */
   function captureFrame() {
@@ -223,14 +223,21 @@ const CameraModule = (() => {
     const vh = videoElement.videoHeight;
     if (!vw || !vh) return null;
 
-    // The CSS overlay: 85% width, 15% height, at bottom with 2% padding
-    // In container-relative coords:
-    const olLeft = (1 - 0.85) / 2;   // 0.075
-    const olTop  = 1 - 0.02 - 0.15;  // 0.83
-    const olW    = 0.85;
-    const olH    = 0.15;
+    // Read the scan-region element's actual position relative to the video
+    const scanEl = document.querySelector(".scan-region");
+    if (!scanEl || !videoElement.parentElement) return null;
 
-    const region = mapOverlayToVideo(olLeft, olTop, olW, olH);
+    const containerRect = videoElement.getBoundingClientRect();
+    const scanRect = scanEl.getBoundingClientRect();
+
+    // Convert scan-region position to container-relative fractions (0–1)
+    const relX = (scanRect.left - containerRect.left) / containerRect.width;
+    const relY = (scanRect.top - containerRect.top) / containerRect.height;
+    const relW = scanRect.width / containerRect.width;
+    const relH = scanRect.height / containerRect.height;
+
+    // Map to video pixel coordinates (accounts for object-fit:cover)
+    const region = mapOverlayToVideo(relX, relY, relW, relH);
 
     // Clamp to video bounds
     const sx = Math.max(0, region.x);

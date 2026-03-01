@@ -273,10 +273,10 @@ body {
 }
 
 .scan-region {
-  width: 85%;
-  height: 15%;
+  width: 5cm;
+  height: 1cm;
   position: relative;
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  border: 2px solid rgba(255, 255, 255, 0.5);
   border-radius: var(--radius-sm);
   display: flex;
   flex-direction: column;
