@@ -32,6 +32,7 @@
 
   // Manual form
   const denomBtns = $$(".denom-btn");
+  const seriesBtns = $$(".series-btn");
   const serialInput = $("#serialInput");
   const btnValidate = $("#btnValidate");
 
@@ -54,6 +55,7 @@
 
   // ── State ──────────────────────────────────────────────────────────
   let selectedDenomination = null;
+  let selectedSeries = null;
   let currentMode = "camera"; // "camera" | "manual"
 
   // ── Initialization ─────────────────────────────────────────────────
@@ -94,6 +96,13 @@
     denomBtns.forEach((btn) => {
       btn.addEventListener("click", () => {
         selectDenomination(btn.dataset.value);
+      });
+    });
+
+    // Series letter buttons
+    seriesBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        selectSeries(btn.dataset.value);
       });
     });
 
@@ -171,6 +180,17 @@
     updateValidateButton();
   }
 
+  // ── Series Letter Selection ────────────────────────────────────────
+  function selectSeries(value) {
+    selectedSeries = value;
+
+    seriesBtns.forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.value === value);
+    });
+
+    updateValidateButton();
+  }
+
   // ── Serial Input Handling ──────────────────────────────────────────
   function handleSerialInput() {
     updateValidateButton();
@@ -179,16 +199,17 @@
   function updateValidateButton() {
     const hasSerial = serialInput.value.trim().length > 0;
     const hasDenom = selectedDenomination !== null;
-    btnValidate.disabled = !(hasSerial && hasDenom);
+    const hasSeries = selectedSeries !== null;
+    btnValidate.disabled = !(hasSerial && hasDenom && hasSeries);
   }
 
   // ── Validation ─────────────────────────────────────────────────────
   function handleValidate() {
     const serial = serialInput.value.trim();
 
-    if (!selectedDenomination || !serial) return;
+    if (!selectedDenomination || !serial || !selectedSeries) return;
 
-    const result = BanknoteValidator.validate(selectedDenomination, serial);
+    const result = BanknoteValidator.validate(selectedDenomination, serial, selectedSeries);
     showResult(result);
   }
 
@@ -360,24 +381,25 @@
   /**
    * Generate the mini banknote visual HTML.
    * @param {string} denomination
-   * @param {string} serial - Normalized serial
+   * @param {string} serial - Serial number
+   * @param {string} seriesLetter - Series letter (A, B, C, etc.)
    * @returns {string} HTML string
    */
-  function buildBanknoteVisual(denomination, serial) {
+  function buildBanknoteVisual(denomination, serial, seriesLetter) {
     const bill = BILL_COLORS[denomination];
     if (!bill) return "";
 
-    // Show only the numeric part for display
+    const series = seriesLetter || "?";
     const displaySerial = serial || "--------";
 
     return `
       <div class="banknote-mini ${bill.css}">
-        <span class="bill-serie">${displaySerial} B</span>
+        <span class="bill-serie">${displaySerial} ${series}</span>
         <span class="bill-value">${bill.label}</span>
-        <span class="bill-serie-bottom">${displaySerial} B</span>
+        <span class="bill-serie-bottom">${displaySerial} ${series}</span>
       </div>
       <div class="banknote-info">
-        <div class="bill-name">Billete de ${bill.label} — Serie B</div>
+        <div class="bill-name">Billete de ${bill.label} — Serie ${series}</div>
         <div>Color: <strong>${bill.name}</strong></div>
         <div class="bill-serial-display">N°: ${displaySerial}</div>
       </div>
@@ -389,8 +411,9 @@
     hideResults();
     resultSection.style.display = "block";
 
-    const detailText = `Corte: Bs${result.denomination} | Serie: B | N°: ${result.normalized}`;
-    const banknoteHTML = buildBanknoteVisual(result.denomination, result.normalized);
+    const seriesLabel = result.seriesLetter || "?";
+    const detailText = `Corte: Bs${result.denomination} | Serie: ${seriesLabel} | N°: ${result.normalized}`;
+    const banknoteHTML = buildBanknoteVisual(result.denomination, result.normalized, result.seriesLetter);
 
     switch (result.status) {
       case "valid":
@@ -433,7 +456,9 @@
     // Reset form
     serialInput.value = "";
     selectedDenomination = null;
+    selectedSeries = null;
     denomBtns.forEach((btn) => btn.classList.remove("active"));
+    seriesBtns.forEach((btn) => btn.classList.remove("active"));
     btnValidate.disabled = true;
 
     // Reset scan displays

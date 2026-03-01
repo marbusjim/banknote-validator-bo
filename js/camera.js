@@ -177,10 +177,10 @@ const CameraModule = (() => {
 
     if (!vw || !vh) return null;
 
-    // Capture the center region (where the scan overlay is)
-    // The scan region is 80% width, 35% height, centered
-    const regionW = Math.floor(vw * 0.8);
-    const regionH = Math.floor(vh * 0.35);
+    // Capture a wide horizontal strip (matching the bottom serial area of the banknote)
+    // The scan region is 92% width, 22% height, centered
+    const regionW = Math.floor(vw * 0.92);
+    const regionH = Math.floor(vh * 0.22);
     const regionX = Math.floor((vw - regionW) / 2);
     const regionY = Math.floor((vh - regionH) / 2);
 

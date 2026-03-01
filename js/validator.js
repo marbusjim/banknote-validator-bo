@@ -10,135 +10,141 @@ const BanknoteValidator = (() => {
   // Valid denominations affected by the BCB measure
   const VALID_DENOMINATIONS = ["10", "20", "50"];
 
-  // Regex to extract a Serie B serial number
-  // Matches patterns like: B 001 2345678, B0012345678, B-001-2345678, etc.
-  const SERIAL_REGEX = /\b(B)\s*[-.]?\s*(\d[\d\s\-.]*\d)\b/i;
-
   /**
-   * Normalize a serial number string:
-   * - Convert to uppercase
-   * - Remove all spaces, hyphens, dots
-   * - Ensure it starts with "B"
-   * @param {string} raw - Raw serial input
-   * @returns {string} Normalized serial
+   * Fix common OCR character misreads in numeric context.
+   * @param {string} str - String that should be numeric
+   * @returns {string} Corrected string
    */
-  function normalizeSerial(raw) {
-    if (!raw) return "";
-    return raw.toUpperCase().replace(/[\s\-.,]+/g, "");
+  function fixOcrDigits(str) {
+    return str
+      .replace(/[OoQD]/g, "0")
+      .replace(/[IilL|]/g, "1")
+      .replace(/[Zz]/g, "2")
+      .replace(/[G]/g, "6");
   }
 
   /**
-   * Extract a serial number from arbitrary text (e.g., OCR output).
-   * @param {string} text - Text that may contain a serial number
-   * @returns {string|null} Extracted serial or null
+   * Extract denomination, serial number, and series letter from OCR text.
+   * Expected format on bottom strip of banknote: "50 102086675 A"
+   * @param {string} text - Raw OCR text
+   * @returns {{ denomination: string|null, serialNumber: string|null, seriesLetter: string|null }|null}
    */
-  function extractSerial(text) {
+  function extractFromStrip(text) {
     if (!text) return null;
 
-    const match = text.match(SERIAL_REGEX);
-    if (match) {
-      const letter = match[1].toUpperCase();
-      const digits = match[2].replace(/[\s\-.]+/g, "");
-      return letter + digits;
+    const cleaned = text.toUpperCase().replace(/\n/g, " ").replace(/\s+/g, " ").trim();
+
+    let denomination = null;
+    let serialNumber = null;
+    let seriesLetter = null;
+
+    // Strategy 1: Full pattern — denom + serial + letter
+    // e.g. "50 102086675 A"
+    const fullMatch = cleaned.match(
+      /\b(10|20|50)\b[\s.,;:]+?(\d[\d\s]{5,})\s+([A-Z])\b/
+    );
+    if (fullMatch) {
+      denomination = fullMatch[1];
+      serialNumber = fixOcrDigits(fullMatch[2]).replace(/\s/g, "");
+      seriesLetter = fullMatch[3];
     }
 
-    return null;
-  }
+    // Strategy 2: serial + letter (no denomination detected)
+    // e.g. "102086675 A"
+    if (!serialNumber) {
+      const slMatch = cleaned.match(/(\d[\d\s]{6,})\s+([A-Z])\b/);
+      if (slMatch) {
+        serialNumber = fixOcrDigits(slMatch[1]).replace(/\s/g, "");
+        seriesLetter = slMatch[2];
+      }
+    }
 
-  /**
-   * Check if a serial looks like a valid Serie B format.
-   * @param {string} serial - Normalized serial
-   * @returns {boolean}
-   */
-  function isValidFormat(serial) {
-    if (!serial) return false;
-    // Must start with B followed by digits (typically 7-12 digits)
-    return /^B\d{7,12}$/.test(serial);
-  }
+    // Strategy 3: letter + serial — "B 102086675"
+    if (!serialNumber) {
+      const lsMatch = cleaned.match(/\b([A-Z])\s+(\d{7,12})\b/);
+      if (lsMatch) {
+        seriesLetter = lsMatch[1];
+        serialNumber = lsMatch[2];
+      }
+    }
 
-  /**
-   * Check if the serial belongs to Serie B.
-   * @param {string} serial - Normalized serial
-   * @returns {boolean}
-   */
-  function isSerieB(serial) {
-    return serial && serial.charAt(0) === "B";
+    // Strategy 4: just a big number (fallback)
+    if (!serialNumber) {
+      const numMatch = cleaned.match(/(\d{7,12})/);
+      if (numMatch) {
+        serialNumber = numMatch[1];
+      }
+    }
+
+    // Try to find denomination if not yet found
+    if (!denomination && serialNumber) {
+      const denomMatch = cleaned.match(/\b(50|20|10)\b/);
+      if (denomMatch && denomMatch[1] !== serialNumber) {
+        denomination = denomMatch[1];
+      }
+    }
+
+    // Validate serial is numeric and reasonable length
+    if (serialNumber) {
+      serialNumber = serialNumber.replace(/\D/g, "");
+      if (serialNumber.length < 7 || serialNumber.length > 12) {
+        serialNumber = null;
+      }
+    }
+
+    if (!serialNumber) return null;
+
+    return { denomination, serialNumber, seriesLetter };
   }
 
   /**
    * Validate a banknote.
    * @param {string} denomination - "10", "20", or "50"
-   * @param {string} serialRaw - Raw serial number input
-   * @returns {{
-   *   status: "valid"|"invalid"|"not-applicable"|"error",
-   *   message: string,
-   *   denomination: string,
-   *   serial: string,
-   *   normalized: string
-   * }}
+   * @param {string} serialRaw - Serial number (digits only)
+   * @param {string} [seriesLetter="B"] - Series letter from the banknote
+   * @returns {object} Validation result
    */
-  function validate(denomination, serialRaw) {
-    const normalized = normalizeSerial(serialRaw);
+  function validate(denomination, serialRaw, seriesLetter) {
+    const numeric = (serialRaw || "").replace(/\D/g, "");
+    const series = (seriesLetter || "B").toUpperCase();
 
     // Check denomination
     if (!VALID_DENOMINATIONS.includes(denomination)) {
       return {
         status: "not-applicable",
-        message: "Solo se verifican billetes de Bs10, Bs20 y Bs50 de la Serie B.",
+        message: "Solo se verifican billetes de Bs10, Bs20 y Bs50.",
         denomination,
         serial: serialRaw,
-        normalized,
+        normalized: numeric,
+        seriesLetter: series,
       };
     }
 
-    // Check if it looks like a serial number
-    if (!normalized) {
+    // Check if serial number was provided
+    if (!numeric || numeric.length < 7) {
       return {
         status: "error",
-        message: "Por favor ingresa un número de serie.",
+        message: "Por favor ingresa un número de serie válido (mínimo 7 dígitos).",
         denomination,
         serial: serialRaw,
-        normalized,
+        normalized: numeric,
+        seriesLetter: series,
       };
     }
 
-    // Check if it's Serie B
-    if (!isSerieB(normalized)) {
+    // If not Serie B, not affected by the BCB measure
+    if (series !== "B") {
       return {
         status: "not-applicable",
-        message: "Este billete no pertenece a la Serie B. Solo la Serie B fue afectada.",
+        message: `Este billete pertenece a la Serie ${series}. Solo la Serie B fue afectada por la medida del BCB.`,
         denomination,
         serial: serialRaw,
-        normalized,
+        normalized: numeric,
+        seriesLetter: series,
       };
     }
 
-    // Check format validity
-    if (!isValidFormat(normalized)) {
-      return {
-        status: "error",
-        message: "El formato del número de serie no parece válido. Debe iniciar con B seguido de 7 a 12 dígitos.",
-        denomination,
-        serial: serialRaw,
-        normalized,
-      };
-    }
-
-    // Look up in the invalid serials database using range check
-    const ranges = INVALID_SERIALS[denomination];
-
-    if (!ranges) {
-      return {
-        status: "error",
-        message: "Error interno: base de datos no disponible.",
-        denomination,
-        serial: serialRaw,
-        normalized,
-      };
-    }
-
-    // Extract the numeric portion (strip "B" prefix) and convert to number
-    const numericPart = parseInt(normalized.substring(1), 10);
+    const numericPart = parseInt(numeric, 10);
 
     if (isNaN(numericPart)) {
       return {
@@ -146,7 +152,8 @@ const BanknoteValidator = (() => {
         message: "No se pudo interpretar el número de serie.",
         denomination,
         serial: serialRaw,
-        normalized,
+        normalized: numeric,
+        seriesLetter: series,
       };
     }
 
@@ -157,7 +164,8 @@ const BanknoteValidator = (() => {
         message: "Este billete se encuentra en la lista de billetes invalidados por el BCB.",
         denomination,
         serial: serialRaw,
-        normalized,
+        normalized: numeric,
+        seriesLetter: series,
       };
     }
 
@@ -166,7 +174,8 @@ const BanknoteValidator = (() => {
       message: "Este billete NO se encuentra en la lista de billetes invalidados.",
       denomination,
       serial: serialRaw,
-      normalized,
+      normalized: numeric,
+      seriesLetter: series,
     };
   }
 
@@ -188,103 +197,72 @@ const BanknoteValidator = (() => {
   }
 
   /**
-   * Extract ALL possible serial numbers from OCR text.
-   * Looks for patterns with digits near a B letter.
-   * @param {string} text
-   * @returns {string[]} Array of possible normalized serials
-   */
-  function extractAllSerials(text) {
-    if (!text) return [];
-    const results = [];
-
-    // Pattern 1: B followed by digits (B0012345678)
-    const pattern1 = /B\s*[-.]?\s*(\d[\d\s\-.]{5,}\d)/gi;
-    let match;
-    while ((match = pattern1.exec(text)) !== null) {
-      const digits = match[1].replace(/[\s\-.]+/g, "");
-      if (digits.length >= 7 && digits.length <= 12) {
-        results.push("B" + digits);
-      }
-    }
-
-    // Pattern 2: digits followed by B (0012345678 B) — as seen on Bolivian bills
-    const pattern2 = /(\d[\d\s\-.]{5,}\d)\s*B/gi;
-    while ((match = pattern2.exec(text)) !== null) {
-      const digits = match[1].replace(/[\s\-.]+/g, "");
-      if (digits.length >= 7 && digits.length <= 12) {
-        results.push("B" + digits);
-      }
-    }
-
-    // Deduplicate
-    return [...new Set(results)];
-  }
-
-  /**
-   * Auto-validate: given raw OCR text, extract serials and try all denominations.
-   * Returns the first definitive result found (invalid first, then valid).
+   * Auto-validate from OCR text (camera scan).
+   * Extracts denomination, serial number, and series letter automatically
+   * from the bottom strip of the banknote.
    * @param {string} ocrText - Raw text from OCR
-   * @returns {{
-   *   status: "valid"|"invalid"|"not-found"|"error",
-   *   message: string,
-   *   denomination: string|null,
-   *   serial: string|null,
-   *   normalized: string|null,
-   *   allExtracted: string[]
-   * }}
+   * @returns {object} Validation result
    */
   function autoValidate(ocrText) {
-    const serials = extractAllSerials(ocrText);
+    const extracted = extractFromStrip(ocrText);
 
-    if (serials.length === 0) {
-      // Try the single extract as fallback
-      const single = extractSerial(ocrText);
-      if (single) serials.push(single);
-    }
-
-    if (serials.length === 0) {
+    if (!extracted || !extracted.serialNumber) {
       return {
         status: "not-found",
-        message: "No se pudo detectar un número de serie en la imagen. Intenta de nuevo o usa el ingreso manual.",
+        message: "No se pudo detectar el número de serie. Enfoca bien la parte inferior del billete e intenta de nuevo.",
         denomination: null,
         serial: null,
         normalized: null,
-        allExtracted: [],
+        seriesLetter: null,
       };
     }
 
-    // Check each serial against all denominations
-    // Priority: find invalid first (more important to flag)
-    let bestValid = null;
+    const { denomination, serialNumber, seriesLetter } = extracted;
 
-    for (const serial of serials) {
-      for (const denom of VALID_DENOMINATIONS) {
-        const result = validate(denom, serial);
+    // If series letter is detected and NOT B, immediately respond
+    if (seriesLetter && seriesLetter !== "B") {
+      return {
+        status: "not-applicable",
+        message: `Este billete pertenece a la Serie ${seriesLetter}. Solo la Serie B fue afectada por la medida del BCB.`,
+        denomination: denomination || null,
+        serial: serialNumber,
+        normalized: serialNumber,
+        seriesLetter: seriesLetter,
+      };
+    }
 
-        if (result.status === "invalid") {
-          // Immediately return invalid — critical finding
-          return { ...result, allExtracted: serials };
-        }
+    // Series is B or unknown — validate against invalid ranges
+    const series = seriesLetter || "B";
 
-        if (result.status === "valid" && !bestValid) {
-          bestValid = { ...result, allExtracted: serials };
-        }
+    if (denomination) {
+      // Denomination known — validate directly
+      return validate(denomination, serialNumber, series);
+    }
+
+    // Denomination unknown — try all 3 (invalid is priority)
+    const numericPart = parseInt(serialNumber, 10);
+
+    for (const denom of VALID_DENOMINATIONS) {
+      if (isSerialInvalid(denom, numericPart)) {
+        return {
+          status: "invalid",
+          message: "Este billete se encuentra en la lista de billetes invalidados por el BCB.",
+          denomination: denom,
+          serial: serialNumber,
+          normalized: serialNumber,
+          seriesLetter: series,
+        };
       }
     }
 
-    // If we found a valid result, return it
-    if (bestValid) {
-      return bestValid;
-    }
-
-    // Serial was found but couldn't validate (format issues, etc.)
+    // Not in any invalid range
     return {
-      status: "not-found",
-      message: "Se detectó texto pero no se pudo verificar como número de serie válido. Intenta de nuevo o usa el ingreso manual.",
-      denomination: null,
-      serial: serials[0],
-      normalized: normalizeSerial(serials[0]),
-      allExtracted: serials,
+      status: "valid",
+      message: "Este billete NO se encuentra en la lista de billetes invalidados.",
+      denomination: denomination || "?",
+      serial: serialNumber,
+      normalized: serialNumber,
+      seriesLetter: series,
     };
   }
 
@@ -292,11 +270,7 @@ const BanknoteValidator = (() => {
   return {
     validate,
     autoValidate,
-    normalizeSerial,
-    extractSerial,
-    extractAllSerials,
-    isValidFormat,
-    isSerieB,
+    extractFromStrip,
     getDatabaseStatus,
     VALID_DENOMINATIONS,
   };

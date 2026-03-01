@@ -266,11 +266,15 @@ body {
 }
 
 .scan-region {
-  width: 80%;
-  height: 35%;
+  width: 92%;
+  height: 18%;
   position: relative;
   border: 2px solid rgba(255, 255, 255, 0.5);
   border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .scan-corner {
@@ -285,6 +289,24 @@ body {
 .scan-corner.tr { top: -2px; right: -2px; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
 .scan-corner.bl { bottom: -2px; left: -2px; border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
 .scan-corner.br { bottom: -2px; right: -2px; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+
+.scan-strip-guide {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 4px 16px;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  color: rgba(255, 255, 255, 0.85);
+  z-index: 1;
+}
+.strip-item { font-weight: 700; }
+.strip-denom { font-size: 1rem; color: var(--color-accent); }
+.strip-serial { font-size: 0.7rem; opacity: 0.7; letter-spacing: 1px; }
+.strip-series { font-size: 1rem; color: var(--color-accent); }
+.strip-divider { opacity: 0.4; font-size: 0.8rem; }
 
 .scan-hint {
   position: absolute;
@@ -504,6 +526,42 @@ body {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-sm);
+}
+
+.series-selector {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-sm);
+}
+
+.series-btn {
+  padding: 10px 8px;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.series-btn:hover {
+  border-color: var(--color-primary);
+  background: rgba(26, 35, 126, 0.05);
+}
+
+.series-btn.active {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.series-btn[data-value="B"].active {
+  border-color: var(--color-warning);
+  background: var(--color-warning);
+  color: #333;
 }
 
 .denom-btn {
@@ -787,48 +845,45 @@ body {
   gap: var(--space-md);
 }
 
-.guide-bill {
-  width: 140px;
-  height: 65px;
+.guide-strip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
   border-radius: 6px;
   border: 2px dashed var(--color-border);
-  position: relative;
   background: var(--color-bg);
-}
-
-.guide-bill .guide-serial {
-  position: absolute;
-  font-size: 0.55rem;
   font-family: 'Courier New', monospace;
-  font-weight: 700;
-  padding: 2px 4px;
-  border-radius: 3px;
 }
 
-.guide-bill .guide-serial.top-right {
-  top: 4px;
-  right: 4px;
-  background: var(--color-accent);
-  color: #333;
+.guide-strip-item {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.guide-strip-denom {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--color-primary);
+}
+
+.guide-strip-serial {
+  font-size: 0.85rem;
+  letter-spacing: 1px;
+  color: var(--color-text);
+}
+
+.guide-strip-series {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--color-accent);
   animation: pulse-highlight 2s ease-in-out infinite;
 }
 
-.guide-bill .guide-serial.bottom-left {
-  bottom: 4px;
-  left: 4px;
-  background: var(--color-accent);
-  color: #333;
-  animation: pulse-highlight 2s ease-in-out infinite 0.5s;
-}
-
-.guide-bill .guide-label {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 0.7rem;
-  color: var(--color-text-secondary);
-  font-weight: 600;
+.guide-strip-div {
+  opacity: 0.3;
+  font-size: 0.8rem;
 }
 
 .guide-arrows {

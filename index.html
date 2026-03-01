@@ -73,8 +73,15 @@
             <div class="scan-corner tr"></div>
             <div class="scan-corner bl"></div>
             <div class="scan-corner br"></div>
-            <p class="scan-hint">Enfoca el número de serie del billete</p>
+            <div class="scan-strip-guide">
+              <span class="strip-item strip-denom">50</span>
+              <span class="strip-divider">|</span>
+              <span class="strip-item strip-serial">N° de serie</span>
+              <span class="strip-divider">|</span>
+              <span class="strip-item strip-series">A</span>
+            </div>
           </div>
+          <p class="scan-hint">📸 Enfoca la franja inferior del billete</p>
         </div>
         <canvas id="captureCanvas" style="display:none;"></canvas>
       </div>
@@ -115,26 +122,27 @@
 
     <!-- Manual Mode -->
     <section class="mode-section" id="manualSection">
-      <!-- Serial Number Location Guide -->
       <div class="serial-guide">
-        <p class="serial-guide-title">📍 ¿Dónde encuentro el número de serie?</p>
+        <p class="serial-guide-title">📍 ¿Dónde encuentro los datos?</p>
         <div class="serial-guide-content">
-          <div class="guide-bill">
-            <span class="guide-serial top-right">00000000 B</span>
-            <span class="guide-label">BILLETE</span>
-            <span class="guide-serial bottom-left">00000000 B</span>
+          <div class="guide-strip">
+            <span class="guide-strip-item guide-strip-denom">50</span>
+            <span class="guide-strip-div">|</span>
+            <span class="guide-strip-item guide-strip-serial">102086675</span>
+            <span class="guide-strip-div">|</span>
+            <span class="guide-strip-item guide-strip-series">A</span>
           </div>
           <div class="guide-arrows">
-            ↗ <strong>Arriba derecha</strong><br>
-            ↙ <strong>Abajo izquierda</strong><br>
-            <small>Busca la letra <strong>B</strong> al final</small>
+            <strong>Parte inferior del billete:</strong><br>
+            ← Corte &nbsp;|&nbsp; N° Serie &nbsp;|&nbsp; Serie →<br>
+            <small>Solo la Serie <strong>B</strong> fue afectada</small>
           </div>
         </div>
       </div>
 
       <div class="manual-form">
         <div class="form-group">
-          <label for="denominationSelect">Corte del billete</label>
+          <label>Corte del billete</label>
           <div class="denomination-selector">
             <button class="denom-btn" data-value="10">Bs 10</button>
             <button class="denom-btn" data-value="20">Bs 20</button>
@@ -143,11 +151,14 @@
         </div>
 
         <div class="form-group">
-          <label for="seriesInput">Serie</label>
-          <div class="series-display">
-            <span class="series-badge">B</span>
-            <span class="series-note">Solo aplica a la Serie B de la nueva familia de billetes</span>
+          <label>Serie</label>
+          <div class="series-selector">
+            <button class="series-btn" data-value="A">A</button>
+            <button class="series-btn" data-value="B">B</button>
+            <button class="series-btn" data-value="C">C</button>
+            <button class="series-btn" data-value="D">D</button>
           </div>
+          <small class="form-hint">Letra que aparece junto al número de serie</small>
         </div>
 
         <div class="form-group">
@@ -155,12 +166,12 @@
           <input 
             type="text" 
             id="serialInput" 
-            placeholder="Ej: B 0012345678" 
+            placeholder="Ej: 102086675" 
             class="form-input"
             autocomplete="off"
-            inputmode="text"
+            inputmode="numeric"
           />
-          <small class="form-hint">Ingresa el número completo que aparece en el billete</small>
+          <small class="form-hint">Solo los dígitos (sin la letra de serie)</small>
         </div>
 
         <button class="btn btn-primary btn-block" id="btnValidate" disabled>
