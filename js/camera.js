@@ -166,9 +166,13 @@ const CameraModule = (() => {
     }
   }
 
+  // Scale factor to upscale the narrow strip for better OCR
+  const OCR_UPSCALE = 3;
+
   /**
    * Capture a frame from the video feed.
-   * Returns the canvas with the captured image.
+   * Crops a narrow strip at the very bottom of the frame where the serial is.
+   * Upscales 3× so Tesseract gets enough pixel data to read digits.
    * @param {string} [enhanceMode="binarize"] - Processing mode
    * @returns {HTMLCanvasElement|null} Canvas with captured frame
    */
@@ -180,69 +184,73 @@ const CameraModule = (() => {
 
     if (!vw || !vh) return null;
 
-    // Capture a wide horizontal region matching the scan overlay
-    // The scan region is 92% width, 35% height, positioned at bottom-center
+    // Narrow strip: 92% width × 10% height at the very bottom of the frame
     const regionW = Math.floor(vw * 0.92);
-    const regionH = Math.floor(vh * 0.35);
+    const regionH = Math.floor(vh * 0.10);
     const regionX = Math.floor((vw - regionW) / 2);
-    const regionY = Math.floor(vh * 0.53); // bottom portion of frame
+    const regionY = Math.floor(vh * 0.88); // very bottom
 
-    canvasElement.width = regionW;
-    canvasElement.height = regionH;
+    // Upscale for better OCR accuracy
+    const outW = regionW * OCR_UPSCALE;
+    const outH = regionH * OCR_UPSCALE;
+
+    canvasElement.width = outW;
+    canvasElement.height = outH;
 
     const ctx = canvasElement.getContext("2d");
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
 
-    // Draw the cropped region
+    // Draw the cropped region upscaled
     ctx.drawImage(
       videoElement,
-      regionX,
-      regionY,
-      regionW,
-      regionH,
-      0,
-      0,
-      regionW,
-      regionH
+      regionX, regionY, regionW, regionH,
+      0, 0, outW, outH
     );
 
     // Apply image processing for better OCR
-    enhanceForOCR(ctx, regionW, regionH, enhanceMode || "binarize");
+    enhanceForOCR(ctx, outW, outH, enhanceMode || "binarize");
 
     return canvasElement;
   }
 
   /**
    * Get multiple processed versions of the captured frame.
-   * Each version uses a different image enhancement strategy.
-   * @returns {string[]} Array of data URLs with different processing
+   * Uses 2 strategies: binarize (Otsu) and high-contrast stretch.
+   * @returns {Array<{mode: string, dataURL: string}>}
    */
   function getMultiPassCaptures() {
-    const modes = ["binarize", "highContrast", "invert"];
+    const modes = ["binarize", "highContrast"];
     const captures = [];
 
+    const vw = videoElement.videoWidth;
+    const vh = videoElement.videoHeight;
+    if (!vw || !vh) return captures;
+
+    // Same narrow strip as captureFrame
+    const regionW = Math.floor(vw * 0.92);
+    const regionH = Math.floor(vh * 0.10);
+    const regionX = Math.floor((vw - regionW) / 2);
+    const regionY = Math.floor(vh * 0.88);
+
+    const outW = regionW * OCR_UPSCALE;
+    const outH = regionH * OCR_UPSCALE;
+
     for (const mode of modes) {
-      // We need a temporary canvas for each mode since they share canvasElement
       const tmpCanvas = document.createElement("canvas");
-      const vw = videoElement.videoWidth;
-      const vh = videoElement.videoHeight;
-      if (!vw || !vh) return captures;
-
-      const regionW = Math.floor(vw * 0.92);
-      const regionH = Math.floor(vh * 0.35);
-      const regionX = Math.floor((vw - regionW) / 2);
-      const regionY = Math.floor(vh * 0.53);
-
-      tmpCanvas.width = regionW;
-      tmpCanvas.height = regionH;
+      tmpCanvas.width = outW;
+      tmpCanvas.height = outH;
       const ctx = tmpCanvas.getContext("2d");
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
 
       ctx.drawImage(
         videoElement,
         regionX, regionY, regionW, regionH,
-        0, 0, regionW, regionH
+        0, 0, outW, outH
       );
 
-      enhanceForOCR(ctx, regionW, regionH, mode);
+      enhanceForOCR(ctx, outW, outH, mode);
       captures.push({ mode, dataURL: tmpCanvas.toDataURL("image/png") });
     }
 
