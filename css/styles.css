@@ -393,6 +393,14 @@ body {
   margin-bottom: var(--space-md);
 }
 
+.capture-preview {
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin-top: var(--space-md);
+  box-shadow: var(--shadow-sm);
+}
+
 .capture-preview-label {
   font-size: var(--font-size-sm);
   font-weight: 600;

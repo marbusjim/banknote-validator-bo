@@ -35,6 +35,7 @@
   const cameraSerialInput = $("#cameraSerialInput");
   const btnCameraValidate = $("#btnCameraValidate");
   const capturePreview = $("#capturePreview");
+  const capturePreviewContainer = $("#capturePreviewContainer");
   const camDenomBtns = $$(".cam-denom-btn");
 
   // Manual form
@@ -301,8 +302,9 @@
 
     cameraResultEdit.style.display = "none";
 
-    // Show captured image in preview
+    // Show captured image preview immediately
     capturePreview.src = imageDataURL;
+    capturePreviewContainer.style.display = "block";
 
     // Show scanning status
     ocrStatus.style.display = "flex";
@@ -401,6 +403,7 @@
   function handleRetryScan() {
     scanError.style.display = "none";
     cameraResultEdit.style.display = "none";
+    capturePreviewContainer.style.display = "none";
     hideResults();
     // Restart camera if it was stopped
     if (!CameraModule.isActive() && CameraModule.isSupported()) {
@@ -573,6 +576,7 @@
     // Reset camera scan state
     cameraResultEdit.style.display = "none";
     cameraSerialInput.value = "";
+    capturePreviewContainer.style.display = "none";
 
     // Reset scan displays
     scanError.style.display = "none";
