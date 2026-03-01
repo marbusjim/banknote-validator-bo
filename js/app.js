@@ -56,23 +56,10 @@
   let currentMode = "camera"; // "camera" | "manual"
   let ocrWorker = null;
 
-  // ── URL for remote serial numbers (optional) ───────────────────────
-  // Set this to your hosted JSON file URL when available.
-  // Example: "https://marbusjim.github.io/banknote-validator-bo/data/invalid-serials.json"
-  const REMOTE_SERIALS_URL = null;
-
   // ── Initialization ─────────────────────────────────────────────────
   async function init() {
     setupEventListeners();
     updateDataStatus();
-
-    // Try to load remote serials if URL is configured
-    if (REMOTE_SERIALS_URL) {
-      const loaded = await loadRemoteSerials(REMOTE_SERIALS_URL);
-      if (loaded) {
-        updateDataStatus();
-      }
-    }
 
     // Initialize camera module
     CameraModule.init(cameraFeed, captureCanvas);
@@ -444,11 +431,10 @@
         day: "numeric",
         month: "long",
         year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
       });
+      const total = dbStatus.totalCount.toLocaleString("es-BO");
       dataStatusText.textContent =
-        `Datos actualizados: ${formatted} — ${dbStatus.totalCount} billetes registrados`;
+        `✅ Datos BCB (${formatted}) — ${total} billetes invalidados`;
     } else {
       dataStatusText.textContent =
         "⏳ Datos: Pendiente de publicación oficial del BCB";

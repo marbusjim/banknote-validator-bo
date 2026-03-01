@@ -124,10 +124,10 @@ const BanknoteValidator = (() => {
       };
     }
 
-    // Look up in the invalid serials database
-    const denomSet = INVALID_SERIALS[denomination];
+    // Look up in the invalid serials database using range check
+    const ranges = INVALID_SERIALS[denomination];
 
-    if (!denomSet) {
+    if (!ranges) {
       return {
         status: "error",
         message: "Error interno: base de datos no disponible.",
@@ -137,7 +137,21 @@ const BanknoteValidator = (() => {
       };
     }
 
-    if (denomSet.has(normalized)) {
+    // Extract the numeric portion (strip "B" prefix) and convert to number
+    const numericPart = parseInt(normalized.substring(1), 10);
+
+    if (isNaN(numericPart)) {
+      return {
+        status: "error",
+        message: "No se pudo interpretar el número de serie.",
+        denomination,
+        serial: serialRaw,
+        normalized,
+      };
+    }
+
+    // Check if the number falls within any invalid range
+    if (isSerialInvalid(denomination, numericPart)) {
       return {
         status: "invalid",
         message: "Este billete se encuentra en la lista de billetes invalidados por el BCB.",
@@ -158,19 +172,16 @@ const BanknoteValidator = (() => {
 
   /**
    * Get database status information.
-   * @returns {{ lastUpdated: string|null, totalCount: number, hasDenomination: object }}
+   * @returns {{ lastUpdated: string|null, totalCount: number, counts: object }}
    */
   function getDatabaseStatus() {
     return {
       lastUpdated: INVALID_SERIALS.lastUpdated,
-      totalCount:
-        INVALID_SERIALS["10"].size +
-        INVALID_SERIALS["20"].size +
-        INVALID_SERIALS["50"].size,
+      totalCount: getTotalInvalidCount(),
       counts: {
-        "10": INVALID_SERIALS["10"].size,
-        "20": INVALID_SERIALS["20"].size,
-        "50": INVALID_SERIALS["50"].size,
+        "10": getDenominationInvalidCount("10"),
+        "20": getDenominationInvalidCount("20"),
+        "50": getDenominationInvalidCount("50"),
       },
       source: INVALID_SERIALS.source,
     };
