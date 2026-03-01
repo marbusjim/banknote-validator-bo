@@ -228,8 +228,9 @@
       }
     }
 
-    const imageDataURL = CameraModule.getCapturedImageDataURL();
-    if (!imageDataURL) return;
+    // Get multiple processed versions of the same frame
+    const captures = CameraModule.getMultiPassCaptures();
+    if (!captures || captures.length === 0) return;
 
     // Show scanning status
     ocrStatus.style.display = "flex";
@@ -239,32 +240,60 @@
     ocrStatusText.textContent = "Escaneando billete...";
 
     try {
-      const text = await performOCR(imageDataURL);
+      // Run OCR on all preprocessed versions
+      const ocrResults = [];
+      for (let i = 0; i < captures.length; i++) {
+        ocrStatusText.textContent = `Analizando imagen ${i + 1} de ${captures.length}...`;
+        const text = await performOCR(captures[i].dataURL);
+        if (text && text.trim()) {
+          ocrResults.push({ mode: captures[i].mode, text: text.trim() });
+        }
+      }
 
       ocrStatus.style.display = "none";
       btnCapture.disabled = false;
 
-      if (text && text.trim()) {
-        // Show raw OCR text for debugging
-        ocrDebugText.value = text;
-        const extracted = BanknoteValidator.extractFromStrip(text);
-        ocrDebugParsed.textContent = extracted
-          ? `Corte: ${extracted.denomination || '?'} | Serial: ${extracted.serialNumber || '?'} | Serie: ${extracted.seriesLetter || '?'}`
-          : 'No se pudo extraer datos del texto';
-        ocrDebug.style.display = "block";
-
-        // Auto-validate: extract serial + detect denomination + check validity
-        const result = BanknoteValidator.autoValidate(text);
-
-        if (result.status === "not-found") {
-          // Could not extract a serial — show error with retry
-          showScanError(result.message);
-        } else {
-          // Got a result (valid, invalid, or error) — show it directly
-          showResult(result);
-        }
-      } else {
+      if (ocrResults.length === 0) {
         showScanError("No se pudo leer el billete. Asegúrate de enfocar bien el número de serie e intenta de nuevo.");
+        return;
+      }
+
+      // Try to extract and validate from each OCR result, pick the best
+      let bestResult = null;
+      let bestExtracted = null;
+      let bestScore = -1;
+      const allTexts = [];
+
+      for (const ocr of ocrResults) {
+        allTexts.push(`[${ocr.mode}] ${ocr.text}`);
+        const extracted = BanknoteValidator.extractFromStrip(ocr.text);
+        if (!extracted) continue;
+
+        const result = BanknoteValidator.autoValidate(ocr.text);
+
+        // Score: prefer results where more fields were detected
+        const score = (extracted.denomination ? 2 : 0)
+                    + (extracted.serialNumber ? 3 : 0)
+                    + (extracted.seriesLetter ? 1 : 0);
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestResult = result;
+          bestExtracted = extracted;
+        }
+      }
+
+      // Show debug info with all OCR attempts
+      ocrDebugText.value = allTexts.join("\n\n");
+      ocrDebugParsed.textContent = bestExtracted
+        ? `Corte: ${bestExtracted.denomination || '?'} | Serial: ${bestExtracted.serialNumber || '?'} | Serie: ${bestExtracted.seriesLetter || '?'}`
+        : 'No se pudo extraer datos de ninguna imagen';
+      ocrDebug.style.display = "block";
+
+      if (bestResult && bestResult.status !== "not-found") {
+        showResult(bestResult);
+      } else {
+        showScanError("No se pudo detectar el número de serie. Intenta enfocar mejor la parte inferior del billete.");
       }
     } catch (err) {
       console.error("OCR Error:", err);
@@ -275,7 +304,7 @@
   }
 
   /**
-   * Perform OCR using Tesseract.js
+   * Perform OCR using Tesseract.js with optimized settings.
    * @param {string} imageDataURL - Base64 image data URL
    * @returns {Promise<string>} Recognized text
    */
@@ -292,6 +321,10 @@
           ocrStatusText.textContent = `Leyendo número de serie... ${pct}%`;
         }
       },
+      // Restrict character set to digits + series letters for better accuracy
+      tessedit_char_whitelist: "0123456789ABCDabcd .,",
+      // PSM 7 = treat image as a single text line
+      tessedit_pageseg_mode: "7",
     });
 
     return result.data.text;
