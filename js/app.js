@@ -58,7 +58,7 @@
 
   // ── URL for remote serial numbers (optional) ───────────────────────
   // Set this to your hosted JSON file URL when available.
-  // Example: "https://yourusername.github.io/banknote-validator-bo/data/invalid-serials.json"
+  // Example: "https://marbusjim.github.io/banknote-validator-bo/data/invalid-serials.json"
   const REMOTE_SERIALS_URL = null;
 
   // ── Initialization ─────────────────────────────────────────────────

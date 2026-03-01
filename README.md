@@ -15,7 +15,7 @@ Herramienta web gratuita para verificar si un billete boliviano de la **Serie B*
 ## 🚀 Cómo usarla
 
 ### Opción 1: Visitar el sitio web
-👉 **[https://TU_USUARIO.github.io/banknote-validator-bo/](https://TU_USUARIO.github.io/banknote-validator-bo/)**
+👉 **[https://marbusjim.github.io/banknote-validator-bo/](https://marbusjim.github.io/banknote-validator-bo/)**
 
 ### Opción 2: Ejecutar localmente
 1. Clona este repositorio
@@ -86,7 +86,7 @@ banknote-validator-bo/
 2. Ve a **Settings** → **Pages**
 3. En "Source" selecciona **Deploy from a branch**
 4. Selecciona la rama `main` y carpeta `/ (root)`
-5. ¡Listo! Tu app estará disponible en `https://TU_USUARIO.github.io/banknote-validator-bo/`
+5. ¡Listo! Tu app estará disponible en `https://marbusjim.github.io/banknote-validator-bo/`
 
 ## ⚖️ Aviso legal
 
