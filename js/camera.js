@@ -32,6 +32,16 @@ const CameraModule = (() => {
       // Stop any existing stream first
       stop();
 
+      // Check if we're on a secure context (HTTPS or localhost)
+      if (!window.isSecureContext) {
+        return { success: false, error: "insecure-context" };
+      }
+
+      // Check if getUserMedia is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        return { success: false, error: "not-supported" };
+      }
+
       const constraints = {
         video: {
           facingMode: currentFacingMode,
@@ -48,12 +58,39 @@ const CameraModule = (() => {
       return new Promise((resolve) => {
         videoElement.onloadedmetadata = () => {
           videoElement.play();
-          resolve(true);
+          resolve({ success: true });
         };
       });
     } catch (err) {
       console.error("Camera start error:", err);
-      return false;
+
+      // Classify the error for better UX
+      if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+        return { success: false, error: "permission-denied" };
+      }
+      if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
+        return { success: false, error: "no-camera" };
+      }
+      if (err.name === "NotReadableError" || err.name === "TrackStartError") {
+        return { success: false, error: "camera-in-use" };
+      }
+      if (err.name === "OverconstrainedError") {
+        // Try again with simpler constraints
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          videoElement.srcObject = stream;
+          return new Promise((resolve) => {
+            videoElement.onloadedmetadata = () => {
+              videoElement.play();
+              resolve({ success: true });
+            };
+          });
+        } catch (retryErr) {
+          return { success: false, error: "unknown", detail: retryErr.message };
+        }
+      }
+
+      return { success: false, error: "unknown", detail: err.message };
     }
   }
 
@@ -78,7 +115,13 @@ const CameraModule = (() => {
   async function switchCamera() {
     currentFacingMode =
       currentFacingMode === "environment" ? "user" : "environment";
-    return start();
+    const result = await start();
+    // If failed with new facing mode, try reverting
+    if (!result.success) {
+      currentFacingMode =
+        currentFacingMode === "environment" ? "user" : "environment";
+    }
+    return result;
   }
 
   /**

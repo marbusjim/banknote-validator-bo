@@ -79,12 +79,12 @@
 
     // Start camera if supported and in camera mode
     if (CameraModule.isSupported() && currentMode === "camera") {
-      const started = await CameraModule.start();
-      if (!started) {
-        showCameraError();
+      const result = await CameraModule.start();
+      if (!result.success) {
+        showCameraError(result.error);
       }
     } else if (!CameraModule.isSupported()) {
-      showCameraError();
+      showCameraError("not-supported");
     }
   }
 
@@ -160,7 +160,10 @@
     // Handle camera lifecycle
     if (mode === "camera") {
       if (CameraModule.isSupported()) {
-        await CameraModule.start();
+        const result = await CameraModule.start();
+        if (!result.success) {
+          showCameraError(result.error);
+        }
       }
     } else {
       CameraModule.stop();
@@ -205,9 +208,9 @@
   // ── Camera Capture & OCR ───────────────────────────────────────────
   async function handleCapture() {
     if (!CameraModule.isActive()) {
-      const started = await CameraModule.start();
-      if (!started) {
-        showCameraError();
+      const result = await CameraModule.start();
+      if (!result.success) {
+        showCameraError(result.error);
         return;
       }
     }
@@ -310,17 +313,62 @@
     btnFlash.classList.toggle("active", flashState);
   }
 
-  function showCameraError() {
+  function showCameraError(errorType) {
+    const messages = {
+      "permission-denied": {
+        title: "Permiso de cámara denegado",
+        body: `Para usar la cámara necesitas otorgar permiso:
+          <ol style="text-align:left;margin:8px 0;padding-left:20px;font-size:0.8rem;line-height:1.8">
+            <li>Toca el ícono 🔒 en la barra de direcciones</li>
+            <li>Busca <strong>"Cámara"</strong> y cámbialo a <strong>"Permitir"</strong></li>
+            <li>Recarga la página</li>
+          </ol>
+          <span style="font-size:0.75rem">O puedes usar el <strong>ingreso manual</strong> abajo.</span>`,
+      },
+      "insecure-context": {
+        title: "Se requiere conexión segura (HTTPS)",
+        body: `La cámara solo funciona con HTTPS. Si estás probando localmente, usa <strong>localhost</strong>.<br><br>
+          <span style="font-size:0.75rem">Puedes usar el <strong>ingreso manual</strong> sin problemas.</span>`,
+      },
+      "no-camera": {
+        title: "No se detectó cámara",
+        body: "No se encontró una cámara en tu dispositivo. Usa el <strong>ingreso manual</strong> para verificar tu billete.",
+      },
+      "camera-in-use": {
+        title: "Cámara en uso",
+        body: "La cámara está siendo usada por otra aplicación. Cierra las otras apps y recarga la página.",
+      },
+      "not-supported": {
+        title: "Cámara no soportada",
+        body: "Tu navegador no soporta acceso a la cámara. Usa un navegador actualizado como <strong>Chrome</strong> o <strong>Safari</strong>, o usa el <strong>ingreso manual</strong>.",
+      },
+    };
+
+    const msg = messages[errorType] || {
+      title: "Error de cámara",
+      body: "No se pudo acceder a la cámara. Verifica los permisos o usa el <strong>ingreso manual</strong>.",
+    };
+
     cameraContainer.innerHTML = `
       <div class="camera-error">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M1 1l22 22M21 21H3a2 2 0 01-2-2V8a2 2 0 012-2h3l2-3h6"/>
           <path d="M18.5 14.5A4 4 0 0014 11"/>
         </svg>
-        <p>No se pudo acceder a la cámara. Verifica los permisos o usa el ingreso manual.</p>
-        <button class="btn btn-small" onclick="location.reload()">Reintentar</button>
+        <p style="font-weight:600;font-size:1rem;margin-bottom:4px">${msg.title}</p>
+        <div style="font-size:0.85rem;opacity:0.9">${msg.body}</div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn btn-small" onclick="location.reload()">🔄 Reintentar</button>
+          <button class="btn btn-small btn-outline" id="btnGoManual">✏️ Ingreso Manual</button>
+        </div>
       </div>
     `;
+
+    // Add listener for "go to manual" button
+    const btnGoManual = document.getElementById("btnGoManual");
+    if (btnGoManual) {
+      btnGoManual.addEventListener("click", () => switchMode("manual"));
+    }
   }
 
   // ── Result Display ─────────────────────────────────────────────────
